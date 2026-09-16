@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -182,6 +183,66 @@ func TestSchedulesAPICreateListRun(t *testing.T) {
 	}
 	if _, _, req := sender.sentInfo(); req.Message != "do it" {
 		t.Errorf("run-now Send message = %q", req.Message)
+	}
+}
+
+func TestSchedulesAPICreateBroadcastsSSE(t *testing.T) {
+	s, _ := newScheduleTestServer(t)
+	client := s.addClient(globalSessID)
+	defer s.removeClient(client)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":         "SSE sched",
+		"instructions": "do it",
+		"cronExpr":     "0 9 * * *",
+		"timezone":     "UTC",
+	})
+	w := httptest.NewRecorder()
+	s.handleApiSchedules(w, httptest.NewRequest(http.MethodPost, "/api/schedules", bytes.NewReader(body)))
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, body %s", w.Code, w.Body.String())
+	}
+
+	select {
+	case msg := <-client.ch:
+		if !strings.Contains(msg, "event: schedules") {
+			t.Fatalf("sse = %q, want schedules event", msg)
+		}
+		if !strings.Contains(msg, `"action":"created"`) {
+			t.Fatalf("sse = %q, want action=created", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for schedules SSE")
+	}
+}
+
+func TestSchedulesAPIDeleteBroadcastsSSE(t *testing.T) {
+	s, _ := newScheduleTestServer(t)
+	created, err := s.schedules.Create(schedules.Schedule{
+		ID: "del-1", Name: "Gone", Instructions: "x", Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := s.addClient(globalSessID)
+	defer s.removeClient(client)
+
+	w := httptest.NewRecorder()
+	s.handleApiSchedule(w, httptest.NewRequest(http.MethodDelete, "/api/schedule?id="+created.ID, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, body %s", w.Code, w.Body.String())
+	}
+
+	select {
+	case msg := <-client.ch:
+		if !strings.Contains(msg, `"action":"deleted"`) {
+			t.Fatalf("sse = %q, want action=deleted", msg)
+		}
+		if !strings.Contains(msg, created.ID) {
+			t.Fatalf("sse = %q, want id %s", msg, created.ID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for schedules SSE")
 	}
 }
 

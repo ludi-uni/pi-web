@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -65,11 +66,53 @@ func (w *piRPCWorker) StartedAt() time.Time {
 	return w.startedAt
 }
 
+// workerDir is the cwd for `pi --mode rpc`. Extensions load at process start
+// from cwd, so inheriting pi-web's own checkout would load this repo's
+// .pi/extensions on top of the globally installed package and crash on a
+// duplicate tool (pi_web_ask_user_question). Prefer the session's project
+// directory; fall back to temp so the server cwd is never inherited.
+func workerDir(sessionPath string) string {
+	if cwd := sessionHeaderCWD(sessionPath); cwd != "" {
+		if info, err := os.Stat(cwd); err == nil && info.IsDir() {
+			return cwd
+		}
+	}
+	return detachedPiDir()
+}
+
+// detachedPiDir is a cwd with no project .pi/extensions. The installed
+// LaunchAgent uses /tmp for the same reason: pi loads project extensions from
+// cwd, and this repo's tools collide with `pi install npm:@ygncode/pi-web`.
+func detachedPiDir() string {
+	return os.TempDir()
+}
+
+func sessionHeaderCWD(sessionPath string) string {
+	f, err := os.Open(sessionPath)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	if !sc.Scan() {
+		return ""
+	}
+	var hdr struct {
+		Type string `json:"type"`
+		CWD  string `json:"cwd"`
+	}
+	if json.Unmarshal(sc.Bytes(), &hdr) != nil || hdr.Type != "session" {
+		return ""
+	}
+	return strings.TrimSpace(hdr.CWD)
+}
+
 func NewPiWorkerWithStream(sessionPath string, streamSink StreamEventSink) (workers.ChatWorker, error) {
 	if _, err := exec.LookPath("pi"); err != nil {
 		return nil, fmt.Errorf("pi executable not found: %w", err)
 	}
 	cmd := exec.Command("pi", "--mode", "rpc")
+	cmd.Dir = workerDir(sessionPath)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err

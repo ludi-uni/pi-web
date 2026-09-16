@@ -101,7 +101,10 @@ that elapsed while the process was down are **skipped** rather than replayed.
 | GET | `/api/schedule/runs?id=` | run log |
 
 The `/schedules` page itself is the SPA shell (served by the catch-all index
-route); the Svelte router renders `SchedulesPage.svelte`.
+route); the Svelte router renders `SchedulesPage.svelte`. Create/update/delete
+(and run-now) broadcast an SSE `schedules` event on `__all__` so an open
+schedules page refetches. Agents can create schedules via `/skill:pi-web-schedule`
+(`pi-web-ctl`); see [skills.md](./skills.md).
 
 ## Push notifications
 

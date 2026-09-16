@@ -84,6 +84,9 @@ The index route listens to `/events?id=__all__` for `new-session`, `status-snaps
 
 - `web/src/shared/api.js` — JSON fetch helpers
 - `web/src/shared/status-events.js` — shared status SSE lifecycle
+- `web/src/shared/app-events.js` — named `/events` subscriptions (schedules, scratchpad,
+  settings) multiplexed onto one EventSource per topic, so extra consumers do not eat
+  the browser's six-connection-per-host budget
 - `web/src/shared/storage.js` — localStorage helpers
 - `web/src/shared/escape.js` — HTML escaping
 - `web/src/shared/theme.js` — theme toggle (dark/light/nord/dracula/custom)
