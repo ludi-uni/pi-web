@@ -120,4 +120,79 @@ describe('ToolCall', () => {
     expect(container.querySelector('.ask-question-card')?.dataset.needsSubmit).toBe('true');
     expect(container.querySelector('.ask-question-block')?.dataset.multiSelect).toBe('true');
   });
+
+  // ── Mobile per-call collapse ─────────────────────────────────────────────
+  // live=false (export/share) or non-mobile → never collapsible.
+  // live=true + mobile + success → collapsible; pending/error stay expanded.
+
+  it('does not collapse when live is false (export/share)', () => {
+    const call = { id: 'c', name: 'bash', arguments: { command: 'ls' } };
+    const entries = [
+      {
+        type: 'message',
+        id: 'r',
+        message: {
+          role: 'toolResult',
+          toolCallId: 'c',
+          content: [{ type: 'text', text: 'ok' }],
+        },
+      },
+    ];
+    const { container } = render(ToolCall, {
+      props: { call, model: model({ entries }), live: false },
+    });
+    expect(container.querySelector('.tool-execution--collapsible')).toBeNull();
+    expect(container.querySelector('.tool-execution')).not.toBeNull();
+  });
+
+  it('does not collapse on desktop even when live is true', () => {
+    const call = { id: 'c', name: 'bash', arguments: { command: 'ls' } };
+    const entries = [
+      {
+        type: 'message',
+        id: 'r',
+        message: {
+          role: 'toolResult',
+          toolCallId: 'c',
+          content: [{ type: 'text', text: 'ok' }],
+        },
+      },
+    ];
+    const { container } = render(ToolCall, {
+      props: { call, model: model({ entries }), live: true },
+    });
+    // jsdom default viewport is >900px, so isMobileLayout() is false.
+    expect(container.querySelector('.tool-execution--collapsible')).toBeNull();
+  });
+
+  it('keeps pending tool calls expanded', () => {
+    const call = { id: 'c', name: 'bash', arguments: { command: 'ls' } };
+    const { container } = render(ToolCall, {
+      props: { call, model: model(), live: true },
+    });
+    // No result → statusClass is 'pending', which must not collapse.
+    expect(container.querySelector('.tool-execution--collapsible')).toBeNull();
+    expect(container.querySelector('.tool-execution.pending')).not.toBeNull();
+  });
+
+  it('keeps error tool calls expanded', () => {
+    const call = { id: 'c', name: 'bash', arguments: { command: 'ls' } };
+    const entries = [
+      {
+        type: 'message',
+        id: 'r',
+        message: {
+          role: 'toolResult',
+          toolCallId: 'c',
+          isError: true,
+          content: [{ type: 'text', text: 'failed' }],
+        },
+      },
+    ];
+    const { container } = render(ToolCall, {
+      props: { call, model: model({ entries }), live: true },
+    });
+    expect(container.querySelector('.tool-execution--collapsible')).toBeNull();
+    expect(container.querySelector('.tool-execution.error')).not.toBeNull();
+  });
 });

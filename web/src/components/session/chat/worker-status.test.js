@@ -79,6 +79,51 @@ describe('setupWorkerStatusPolling', () => {
     expect(events).toEqual(['pi-worker-done']);
   });
 
+  it('does not set a completed status on running to idle transition', async () => {
+    const setStatus = vi.fn();
+    const getWorkerStatus = vi
+      .fn()
+      .mockResolvedValueOnce(response({ state: 'running' }))
+      .mockResolvedValueOnce(response({ state: 'idle' }));
+
+    const controller = setupWorkerStatusPolling({
+      windowImpl: new EventTarget(),
+      chatApi: { getWorkerStatus },
+      setStatus,
+      setIntervalImpl: () => {},
+      CustomEventImpl: Event,
+    });
+    await tick();
+    await controller.refresh();
+
+    // running→idle is ambiguous (completion vs cancel/abort); we must not
+    // claim "completed" because the API provides no explicit signal.
+    const completedCalls = setStatus.mock.calls.filter(([text]) => text === 'completed');
+    expect(completedCalls).toHaveLength(0);
+  });
+
+  it('does not set a completed status after error state', async () => {
+    const setStatus = vi.fn();
+    const getWorkerStatus = vi
+      .fn()
+      .mockResolvedValueOnce(response({ state: 'running' }))
+      .mockResolvedValueOnce(response({ state: 'error', error: 'worker died' }));
+
+    const controller = setupWorkerStatusPolling({
+      windowImpl: new EventTarget(),
+      chatApi: { getWorkerStatus },
+      setStatus,
+      setIntervalImpl: () => {},
+      CustomEventImpl: Event,
+    });
+    await tick();
+    await controller.refresh();
+
+    const completedCalls = setStatus.mock.calls.filter(([text]) => text === 'completed');
+    expect(completedCalls).toHaveLength(0);
+    expect(setStatus).toHaveBeenCalledWith('worker died', 'error');
+  });
+
   it('refreshes immediately on session reload', async () => {
     const windowImpl = new EventTarget();
     const getWorkerStatus = vi.fn(() => Promise.resolve(response({ state: 'idle' })));

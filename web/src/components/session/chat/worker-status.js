@@ -41,6 +41,9 @@ export function setupWorkerStatusPolling({
       if (data.state === 'idle') setStatus('idle', '');
       if (data.state === 'error') setStatus(data.error || 'worker error', 'error');
       if (lastWorkerState === 'running' && data.state === 'idle') {
+        // running→idle can mean either a normal completion or a cancel/abort
+        // (Abort() also sets state to idle). There is no explicit completion
+        // signal in the API, so we do not guess a "completed" status here.
         try {
           windowImpl.dispatchEvent(new CustomEventImpl('pi-worker-done'));
         } catch {

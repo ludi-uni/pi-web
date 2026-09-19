@@ -3832,11 +3832,12 @@
         display: block;
       }
 
+      /* The header #tree-toggle already opens this drawer on mobile, so the
+         floating #hamburger is redundant — and it sits directly over the
+         composer's lower-left corner. Hide it here; desktop collapse still
+         restores it via the min-width:901px rules above. */
       #hamburger {
-        display: block;
-        top: auto;
-        bottom: calc(var(--pi-chat-composer-height, 0px) + 10px + env(safe-area-inset-bottom));
-        left: 12px;
+        display: none !important;
       }
 
       #sidebar .hide-sidebar {
@@ -3954,6 +3955,171 @@
 
       .pi-btw-header {
         cursor: default;
+      }
+
+      /* ── Mobile composer ────────────────────────────────────────────
+         Thumb-reachable Send/Stop, a toolbar that wraps instead of clipping,
+         and a shorter textarea so the keyboard leaves room for messages.
+         Desktop (>900px) is untouched — every rule below lives inside this
+         media query. */
+
+      .pi-chat-composer {
+        padding: 10px 10px 0;
+      }
+
+      /* The cwd bar duplicates the path already shown in the header; on a
+         phone it costs a full toolbar row. Keep it on desktop. */
+      .pi-chat-cwd-bar {
+        display: none;
+      }
+
+      #pi-chat-message {
+        min-height: 66px;
+        height: 66px;
+        font-size: 13px;
+      }
+
+      /* Let the toolbar wrap onto a second row on narrow screens instead of
+         hiding trailing controls behind overflow:hidden. The action cluster
+         (Send/Cancel/Queue) is pushed onto its own right-aligned row so the
+         primary buttons are always visible and thumb-reachable. */
+      .pi-chat-toolbar {
+        flex-wrap: wrap;
+        row-gap: 4px;
+        overflow: visible;
+      }
+
+      .pi-chat-toolbar .actions {
+        flex-basis: 100%;
+        justify-content: flex-end;
+      }
+
+      /* Touch targets: WCAG/Apple-size primary buttons. The shared selector
+         keeps the desktop sizes (25-26px) intact above 900px. */
+      .pi-chat-icon-button,
+      .pi-chat-send,
+      .pi-chat-cancel,
+      .pi-chat-queue {
+        min-height: 42px;
+        min-width: 42px;
+        font-size: 13px;
+      }
+
+      .pi-chat-send {
+        padding: 8px 22px;
+      }
+
+      .pi-chat-cancel,
+      .pi-chat-queue {
+        padding: 8px 14px;
+      }
+
+      /* Slightly larger secondary controls so they stay legible/tappable. */
+      .pi-chat-model-label,
+      .pi-chat-thinking-label,
+      .pi-chat-status {
+        font-size: 12px;
+      }
+
+      .pi-chat-expand-button {
+        width: 32px;
+        height: 32px;
+        opacity: 0.7;
+      }
+
+      /* Jump-to-latest: keep the existing follow button but move it to the
+         lower-right, clear of the centred position it shares with nothing on
+         mobile but easy to miss under the thumb. --pi-chat-composer-height
+         already includes the git bar + safe-area padding, so only a small
+         gap is added — no extra env() term or it would double-count. */
+      .follow-button {
+        left: auto;
+        right: 12px;
+        transform: scale(0.9);
+        bottom: calc(var(--pi-chat-composer-height, 120px) + 12px);
+        width: 44px;
+        height: 44px;
+      }
+
+      .follow-button.visible {
+        transform: scale(1);
+      }
+
+      /* Per-tool-call collapse (mobile only). The card shows a one-line
+         summary; tapping expands the full args/output. Cursor + focus ring
+         signal interactivity without changing the desktop presentation. */
+      .tool-execution--collapsible {
+        cursor: pointer;
+      }
+
+      .tool-execution--collapsible:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .tool-collapse-summary {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-weight: bold;
+        min-width: 0;
+      }
+
+      .tool-collapse-icon {
+        font-size: 9px;
+        flex-shrink: 0;
+        color: var(--muted);
+      }
+
+      .tool-collapse-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+
+      /* Collapsed state: hide everything below the summary line. */
+      .tool-execution--collapsed > :not(.tool-collapse-summary) {
+        display: none;
+      }
+
+      /* Quick Prompt chips — one-tap prompt snippets for the mobile composer.
+         Horizontally scrollable so they never wrap and push the textarea
+         down. Hidden on desktop where the composer has room to breathe. */
+      .quick-prompts {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0 0 6px;
+        margin: 0 -2px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      .quick-prompts::-webkit-scrollbar {
+        display: none;
+      }
+      .quick-prompt-chip {
+        flex-shrink: 0;
+        min-height: 36px;
+        padding: 6px 12px;
+        border-radius: 18px;
+        border: 1px solid var(--dim);
+        background: var(--container-bg);
+        color: var(--text);
+        font-size: 12px;
+        font-family: inherit;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .quick-prompt-chip:active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .quick-prompt-chip:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
     }
 
@@ -5058,6 +5224,50 @@
     .pi-chat-status.error { color: var(--error); }
     .pi-chat-status.running { color: var(--success); }
 
+    /* Current-session status badge — small pill in the composer toolbar.
+       Derived from existing toolbar state; hidden when idle/unavailable so
+       the header stays quiet. Mobile-only: desktop already shows the plain
+       text status in .pi-chat-status, and adding a second badge there would
+       change the existing desktop UI. */
+    .pi-session-status {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 7px;
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: inherit;
+      line-height: 1.5;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .pi-session-status--running {
+      color: var(--success);
+      background: color-mix(in srgb, var(--success) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+    }
+    .pi-session-status--waiting {
+      color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+    }
+    .pi-session-status--failed {
+      color: var(--error);
+      background: color-mix(in srgb, var(--error) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
+    }
+    /* Gentle pulse on running only; suppressed under reduced-motion. */
+    @media (prefers-reduced-motion: no-preference) {
+      .pi-session-status--running {
+        animation: pi-session-status-pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes pi-session-status-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.55; }
+      }
+    }
+
     .pi-chat-model-label {
       background: none;
       border: none;
@@ -6086,9 +6296,25 @@
       pointer-events: none;
       user-select: none;
     }
+    /* Quick Prompt chips are a mobile-only affordance; the desktop composer
+       has enough room and an extra row would clutter the existing layout. */
+    .quick-prompts {
+      display: none;
+    }
+
     @media (max-width: 900px) {
       .pi-chat-focus-shortcut {
         display: none;
+      }
+      /* Show the session status badge only in the mobile layout — desktop
+         already has the plain text status and we don't want to change the
+         existing desktop UI. */
+      .pi-session-status {
+        display: inline-flex;
+      }
+      /* Show quick prompt chips only on mobile. */
+      .quick-prompts {
+        display: flex;
       }
     }
 

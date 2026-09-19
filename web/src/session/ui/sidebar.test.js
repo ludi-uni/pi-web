@@ -211,6 +211,73 @@ describe('setupSidebarCollapse', () => {
     expect(treeToggle.getAttribute('aria-pressed')).toBe('true');
     expect(storage.setItem).toHaveBeenCalledWith(SIDEBAR_COLLAPSED_STORAGE_KEY, 'false');
   });
+
+  it('Escape closes the mobile drawer', () => {
+    const jsdom = collapseDom();
+    jsdom.window.matchMedia = () => ({ matches: true });
+    const storage = { getItem: () => 'false', setItem: vi.fn() };
+    setupSidebarCollapse({
+      documentImpl: jsdom.window.document,
+      windowImpl: jsdom.window,
+      storage,
+    });
+    const sidebar = jsdom.window.document.getElementById('sidebar');
+    sidebar.classList.add('open');
+    jsdom.window.document.body.classList.add('sidebar-open');
+
+    jsdom.window.document.dispatchEvent(
+      new jsdom.window.KeyboardEvent('keydown', { key: 'Escape' }),
+    );
+    expect(sidebar.classList.contains('open')).toBe(false);
+    expect(jsdom.window.document.body.classList.contains('sidebar-open')).toBe(false);
+  });
+
+  it('Escape does not close the drawer on desktop', () => {
+    const jsdom = collapseDom();
+    jsdom.window.matchMedia = () => ({ matches: false });
+    const storage = { getItem: () => 'false', setItem: vi.fn() };
+    setupSidebarCollapse({
+      documentImpl: jsdom.window.document,
+      windowImpl: jsdom.window,
+      storage,
+    });
+    const sidebar = jsdom.window.document.getElementById('sidebar');
+    sidebar.classList.add('open');
+    jsdom.window.document.body.classList.add('sidebar-open');
+
+    jsdom.window.document.dispatchEvent(
+      new jsdom.window.KeyboardEvent('keydown', { key: 'Escape' }),
+    );
+    expect(sidebar.classList.contains('open')).toBe(true);
+  });
+
+  it('focus returns to trigger on close when trigger is still connected', () => {
+    const jsdom = collapseDom();
+    jsdom.window.matchMedia = () => ({ matches: true });
+    const storage = { getItem: () => 'false', setItem: vi.fn() };
+    setupSidebarCollapse({
+      documentImpl: jsdom.window.document,
+      windowImpl: jsdom.window,
+      storage,
+    });
+    const treeToggle = jsdom.window.document.getElementById('tree-toggle');
+    const sidebar = jsdom.window.document.getElementById('sidebar');
+    // Add a focusable element inside the sidebar so focus moves there on open.
+    const innerBtn = jsdom.window.document.createElement('button');
+    innerBtn.id = 'inner-btn';
+    sidebar.appendChild(innerBtn);
+
+    // Simulate opening via tree-toggle (which focuses the trigger first).
+    treeToggle.focus();
+    treeToggle.click();
+    expect(jsdom.window.document.activeElement).toBe(innerBtn);
+
+    // Close via ESC and expect focus back on the trigger.
+    jsdom.window.document.dispatchEvent(
+      new jsdom.window.KeyboardEvent('keydown', { key: 'Escape' }),
+    );
+    expect(jsdom.window.document.activeElement).toBe(treeToggle);
+  });
 });
 
 describe('setupSidebarResize', () => {

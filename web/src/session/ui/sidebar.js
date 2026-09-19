@@ -59,6 +59,9 @@ export function saveSidebarWidth(width, env = {}) {
   }
 }
 
+// Element that opened the mobile drawer, so focus can return to it on close.
+let drawerTrigger = null;
+
 export function setSidebarOpen(open, { documentImpl = document } = {}) {
   const sidebar = documentImpl.getElementById('sidebar');
   const overlay = documentImpl.getElementById('sidebar-overlay');
@@ -67,6 +70,26 @@ export function setSidebarOpen(open, { documentImpl = document } = {}) {
   overlay?.classList.toggle('open', open);
   documentImpl.body?.classList.toggle('sidebar-open', open);
   if (hamburger) hamburger.style.display = open ? 'none' : '';
+
+  if (open) {
+    // Remember which control opened the drawer so focus can return to it.
+    drawerTrigger = documentImpl.activeElement;
+    // Move focus to the first interactive element inside the drawer so
+    // keyboard/screen-reader users land inside it rather than behind it.
+    const first = sidebar?.querySelector(
+      'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    first?.focus?.();
+  } else if (drawerTrigger && typeof drawerTrigger.focus === 'function') {
+    // Restore focus to the trigger that opened the drawer — but only if it
+    // is still in the DOM. After session navigation the old trigger may have
+    // been removed; focusing a detached element is a no-op in some browsers
+    // and can scroll oddly in others.
+    if (drawerTrigger.isConnected) {
+      drawerTrigger.focus();
+    }
+    drawerTrigger = null;
+  }
 }
 
 export function loadSidebarCollapsed({ storage = globalThis.localStorage } = {}) {
@@ -144,6 +167,17 @@ export function setupSidebarCollapse({
 
   hideBtn?.addEventListener('click', closeSidebar);
   closeBtn?.addEventListener('click', () => setSidebarOpen(false, { documentImpl }));
+
+  // Escape closes the mobile drawer. Desktop collapse is unaffected — this
+  // only fires while the drawer is actually open.
+  documentImpl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!isMobileLayout({ windowImpl })) return;
+    const sidebar = documentImpl.getElementById('sidebar');
+    if (!sidebar?.classList.contains('open')) return;
+    e.preventDefault();
+    setSidebarOpen(false, { documentImpl });
+  });
 
   treeToggle?.addEventListener('click', () => {
     if (isMobileLayout({ windowImpl })) {

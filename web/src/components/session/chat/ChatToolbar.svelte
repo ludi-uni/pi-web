@@ -9,12 +9,37 @@
   const statusText = $derived(
     toolbar.statusText || (chatAvailable ? t('composer.idle') : t('composer.unavailable')),
   );
+
+  // Small status badge for the currently-open session. Derived entirely from
+  // the existing toolbar state — no new backend data. Only shown when there's
+  // a meaningful state to report (running/waiting/failed); idle and
+  // unavailable stay quiet to avoid header noise. "completed" is omitted
+  // because running→idle is ambiguous (completion vs cancel) and there is no
+  // explicit completion signal in the API.
+  const statusBadge = $derived.by(() => {
+    if (!chatAvailable) return null;
+    // queued/accepted are "waiting to run" — check before isRunning because
+    // isRunningStatus() treats them as running for the cancel-button logic.
+    if (toolbar.statusText === 'queued' || toolbar.statusText === 'accepted')
+      return { kind: 'waiting', label: t('session.statusWaiting') };
+    if (toolbar.isRunning) return { kind: 'running', label: t('session.statusRunning') };
+    if (toolbar.statusClass === 'error')
+      return { kind: 'failed', label: t('session.statusFailed') };
+    return null;
+  });
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
 
 <div class="pi-chat-toolbar">
   <div class="pi-chat-toolbar-left">
+    {#if statusBadge}
+      <span
+        class="pi-session-status pi-session-status--{statusBadge.kind}"
+        role="status"
+        aria-live="polite">{statusBadge.label}</span
+      >
+    {/if}
     <button
       type="button"
       id="pi-chat-attach"

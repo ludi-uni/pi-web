@@ -83,6 +83,7 @@
     {#each msg.content as block, toolBlockIndex (toolBlockIndex)}{#if block.type === 'toolCall'}<ToolCall
           call={block}
           {model}
+          {live}
         />{/if}{/each}
     {#if msg.stopReason === 'aborted'}<div class="error-text">
         Aborted

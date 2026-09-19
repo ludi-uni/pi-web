@@ -6,10 +6,11 @@
   // the `entry-<resultId>` anchor so annotations + scroll still work.
   import { shortenPath } from '../../session/render/session-format.js';
   import { getLanguageFromPath, str } from '../../session/render/entry-format.js';
+  import { isMobileLayout } from '../../session/ui/sidebar.js';
   import ToolOutput, { toggleExpanded } from './ToolOutput.svelte';
   import AskQuestion from './AskQuestion.svelte';
 
-  let { call, model } = $props();
+  let { call, model, live = false } = $props();
 
   const resultEntry = $derived.by(() => {
     for (const entry of model?.entries || []) {
@@ -39,6 +40,53 @@
 
   // read/write/edit/ls share a file-path arg; compute it once.
   const filePath = $derived(str(args.file_path ?? args.path));
+
+  // ── Mobile per-call collapse ─────────────────────────────────────────────
+  // Live + mobile only: export/share mounts this component with live=false so
+  // the static snapshot keeps the fully-expanded rendering. Desktop keeps the
+  // expanded view too — the collapse is a small-screen affordance, not a new
+  // default. Errors and in-flight (pending) calls stay expanded so important
+  // state is never hidden behind a tap.
+  let mobile = $state(isMobileLayout());
+  $effect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(max-width: 900px)');
+    const onChange = () => (mobile = mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  });
+  const collapsible = $derived(
+    live && mobile && statusClass !== 'error' && statusClass !== 'pending',
+  );
+  let expanded = $state(false);
+  const isExpanded = $derived(!collapsible || expanded);
+
+  function summaryText() {
+    const name = call.name;
+    if (name === 'read') return `Read: ${shortenPath(filePath || '')}`;
+    if (name === 'write') return `Write: ${shortenPath(filePath || '')}`;
+    if (name === 'edit') return `Edit: ${shortenPath(filePath || '')}`;
+    if (name === 'ls') return `ls: ${shortenPath(str(args.path) || '.')}`;
+    if (name === 'bash') {
+      const cmd = (str(args.command) || '').replace(/[\n\t]/g, ' ').trim();
+      return `$ ${cmd.length > 60 ? cmd.slice(0, 60) + '…' : cmd}`;
+    }
+    if (
+      name === 'ask_user_question' ||
+      name === 'pi_web_ask_user_question' ||
+      name === 'ask_question'
+    ) {
+      const qs = Array.isArray(args.questions) ? args.questions : [];
+      const first = qs[0]?.question || qs[0]?.question_text || '';
+      return first ? `Ask: ${first.length > 60 ? first.slice(0, 60) + '…' : first}` : 'Ask';
+    }
+    return name;
+  }
+
+  function toggleCollapse() {
+    if (window.getSelection && window.getSelection().toString()) return;
+    expanded = !expanded;
+  }
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
@@ -50,7 +98,35 @@
   tool call doesn't render as a stranded timestamp.
 -->
 <div class="tool-call-collapsed">Tool: {call.name} ...</div>
-<div class="tool-execution {statusClass}" id={resultEntry ? `entry-${resultEntry.id}` : undefined}>
+{#if collapsible}
+  <div
+    class="tool-execution tool-execution--collapsible {statusClass}"
+    class:tool-execution--collapsed={!isExpanded}
+    id={resultEntry ? `entry-${resultEntry.id}` : undefined}
+    onclick={toggleCollapse}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleCollapse()}
+    aria-expanded={isExpanded}
+  >
+    <div class="tool-collapse-summary">
+      <span class="tool-collapse-icon" aria-hidden="true">{isExpanded ? '▼' : '▶'}</span>
+      <span class="tool-collapse-text">{summaryText()}</span>
+    </div>
+    {#if isExpanded}
+      {@render toolDetail()}
+    {/if}
+  </div>
+{:else}
+  <div
+    class="tool-execution {statusClass}"
+    id={resultEntry ? `entry-${resultEntry.id}` : undefined}
+  >
+    {@render toolDetail()}
+  </div>
+{/if}
+
+{#snippet toolDetail()}
   {#if call.name === 'bash'}
     {@const command = str(args.command)}
     <div class="tool-command">
@@ -164,4 +240,4 @@
     <div class="tool-output"><pre>{JSON.stringify(args, null, 2)}</pre></div>
     {#if result && resultText}<ToolOutput text={resultText} maxLines={10} />{/if}
   {/if}
-</div>
+{/snippet}

@@ -18,6 +18,7 @@
   import ChatToolbar from './chat/ChatToolbar.svelte';
   import ContextUsage from './chat/ContextUsage.svelte';
   import QueuePanel from './chat/QueuePanel.svelte';
+  import QuickPrompts from './chat/QuickPrompts.svelte';
   import TextAttachmentModal from './chat/TextAttachmentModal.svelte';
   import { ChatToolbarState } from './chat/chat-toolbar-state.svelte.js';
   import { QueueStore } from './chat/queue-store.svelte.js';
@@ -30,6 +31,8 @@
     cwd = '',
     modelLabel = '',
   } = $props();
+
+  let messageTextarea = $state(null);
 
   // Reactive toolbar state owned here so the live runtime can mutate it while
   // <ChatToolbar> renders from it.
@@ -117,12 +120,14 @@
         ><span class="pi-chat-focus-shortcut">{t('composer.focusShortcut')}</span>
       </div>{/if}
     {#if !chatAvailable}<div class="pi-chat-disabled-notice">{chatDisabledReason}</div>{/if}
+    <QuickPrompts textarea={messageTextarea} />
     <textarea
       id="pi-chat-message"
       name="message"
       rows="1"
       placeholder={t('composer.placeholder')}
       disabled={!chatAvailable}
+      bind:this={messageTextarea}
     ></textarea>
     <div id="pi-chat-attachments" class="pi-chat-attachments"></div>
     <ChatSelectorPopups />
