@@ -4,6 +4,7 @@
     icon,
     SquarePen,
     FolderGit2,
+    FolderOpen,
     BookOpen,
     Send,
     Settings,
@@ -79,6 +80,19 @@
       ><span class="menu-item-label"
         >{@html icon(FolderGit2, { size: 15 })}{t('index.manageProjects')}</span
       ></button
+    >
+    <a
+      class="web-menu-item"
+      href="/workspaces"
+      role="menuitem"
+      data-workspaces-link
+      onclick={(event) => {
+        onClose();
+        handleNavClick(event, '/workspaces');
+      }}
+      ><span class="menu-item-label"
+        >{@html icon(FolderOpen, { size: 15 })}{t('workspaces.title')}</span
+      ></a
     >
   </div>
   <div class="web-menu-section">

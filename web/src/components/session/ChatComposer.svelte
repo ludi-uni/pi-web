@@ -120,7 +120,7 @@
         ><span class="pi-chat-focus-shortcut">{t('composer.focusShortcut')}</span>
       </div>{/if}
     {#if !chatAvailable}<div class="pi-chat-disabled-notice">{chatDisabledReason}</div>{/if}
-    <QuickPrompts textarea={messageTextarea} />
+    <QuickPrompts textarea={messageTextarea} {cwd} />
     <textarea
       id="pi-chat-message"
       name="message"

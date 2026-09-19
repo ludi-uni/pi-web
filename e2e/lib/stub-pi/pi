@@ -154,6 +154,17 @@ function handle(cmd) {
     case "get_commands":
       respond(cmd.id, "get_commands", { commands: COMMANDS });
       break;
+    case "get_available_models":
+      // Return a small deterministic model list so /api/models and workspace
+      // model validation work in E2E without real pi.
+      respond(cmd.id, "get_available_models", {
+        models: [
+          { id: "claude-opus-4-7", name: "Opus", provider: "anthropic" },
+          { id: "gpt-5-5-none", name: "GPT-5.5 No Thinking", provider: "devin" },
+          { id: "gpt-5-5-low", name: "GPT-5.5 Low Thinking", provider: "devin" },
+        ],
+      });
+      break;
     case "prompt":
       handlePrompt(cmd);
       break;

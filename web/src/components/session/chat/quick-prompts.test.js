@@ -4,6 +4,7 @@ import {
   QUICK_PROMPTS_STORAGE_KEY,
   loadQuickPrompts,
   saveQuickPrompts,
+  resolveQuickPrompts,
 } from './quick-prompts.js';
 
 function storage(map = {}) {
@@ -79,5 +80,48 @@ describe('quick-prompts', () => {
       },
     };
     expect(loadQuickPrompts({ storage: s })).toEqual(DEFAULT_QUICK_PROMPTS);
+  });
+
+  // ── Workspace override precedence ──
+
+  it('workspace quickPrompts win over global and defaults', () => {
+    const ws = {
+      settings: {
+        quickPrompts: [{ id: 'w', label: 'WS', prompt: 'workspace prompt' }],
+      },
+    };
+    const s = storage({
+      [QUICK_PROMPTS_STORAGE_KEY]: JSON.stringify([
+        { id: 'g', label: 'G', prompt: 'global prompt' },
+      ]),
+    });
+    expect(resolveQuickPrompts(ws, { storage: s })).toEqual([
+      { id: 'w', label: 'WS', prompt: 'workspace prompt' },
+    ]);
+  });
+
+  it('falls back to global when workspace has no quickPrompts', () => {
+    const ws = { settings: {} };
+    const s = storage({
+      [QUICK_PROMPTS_STORAGE_KEY]: JSON.stringify([
+        { id: 'g', label: 'G', prompt: 'global prompt' },
+      ]),
+    });
+    expect(resolveQuickPrompts(ws, { storage: s })).toEqual([
+      { id: 'g', label: 'G', prompt: 'global prompt' },
+    ]);
+  });
+
+  it('falls back to defaults when workspace and global are empty', () => {
+    const ws = { settings: {} };
+    expect(resolveQuickPrompts(ws, { storage: storage() })).toEqual(DEFAULT_QUICK_PROMPTS);
+    expect(resolveQuickPrompts(null, { storage: storage() })).toEqual(DEFAULT_QUICK_PROMPTS);
+  });
+
+  it('ignores invalid workspace quickPrompts and falls back', () => {
+    const ws = {
+      settings: { quickPrompts: [{ id: '', label: 'bad' }, 'junk', null] },
+    };
+    expect(resolveQuickPrompts(ws, { storage: storage() })).toEqual(DEFAULT_QUICK_PROMPTS);
   });
 });

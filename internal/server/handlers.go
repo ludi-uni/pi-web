@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -340,6 +341,7 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path            string `json:"path"`
 		SourceSessionID string `json:"sourceSessionId"`
+		Model           string `json:"model"`
 	}
 	if !decodeJSONBody(w, r, &body) {
 		return
@@ -349,7 +351,25 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings := s.initialSettingsFromSource(r.Context(), body.SourceSessionID)
+	// Resolve the initial model. Precedence: explicit request model →
+	// sourceSessionId inherited model → default (none).
+	var settings sessions.InitialSettings
+	if body.Model != "" {
+		provider, modelID, err := s.resolveModelRef(r.Context(), body.Model)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		settings.ModelProvider = provider
+		settings.ModelID = modelID
+	}
+	if settings.ModelProvider == "" {
+		inherited := s.initialSettingsFromSource(r.Context(), body.SourceSessionID)
+		if inherited.ModelProvider != "" {
+			settings = inherited
+		}
+	}
+
 	id, err := sessions.CreateSessionFileWithSettings(s.sessionsDir, body.Path, settings)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
@@ -369,6 +389,45 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, 0, map[string]any{"ok": true, "id": id})
+}
+
+// resolveModelRef validates a "provider/model-id" string against the live
+// model registry and returns the split parts. Returns an error when the model
+// is not available — the caller should reject the request rather than falling
+// back to a default silently.
+func (s *Server) resolveModelRef(ctx context.Context, ref string) (provider, modelID string, err error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", "", errors.New("model is empty")
+	}
+	// Split on the first "/" — provider names don't contain "/".
+	slash := strings.Index(ref, "/")
+	if slash <= 0 || slash == len(ref)-1 {
+		return "", "", fmt.Errorf("model must be in provider/model-id format, got %q", ref)
+	}
+	provider, modelID = ref[:slash], ref[slash+1:]
+
+	data, err := s.models(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list models: %w", err)
+	}
+	var payload struct {
+		Models []map[string]any `json:"models"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return "", "", fmt.Errorf("invalid model list payload: %w", err)
+	}
+	for _, m := range payload.Models {
+		p, _ := m["provider"].(string)
+		id, _ := m["id"].(string)
+		if id == "" {
+			id, _ = m["modelId"].(string)
+		}
+		if p == provider && id == modelID {
+			return provider, modelID, nil
+		}
+	}
+	return "", "", fmt.Errorf("model %q is not available", ref)
 }
 
 func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {

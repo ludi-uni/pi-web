@@ -45,17 +45,45 @@ func resolveOrWriteError(w http.ResponseWriter, err error) bool {
 
 // handleGitInfo returns the current branch and a GitHub PR URL for the
 // session's working directory. Non-repo cwds return {isRepo:false}.
+//
+// Two lookup modes:
+//   ?id=<sessionId>   — resolve the session's cwd (original behavior)
+//   ?path=<abs path>  — describe a registered workspace's path directly
+//
+// The path form is intentionally restricted to paths present in the
+// workspaces registry so this endpoint cannot be used to probe arbitrary
+// filesystem locations. When both are given, id wins.
 func (s *Server) handleGitInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	_, cwd, err := s.resolveSessionCwd(r.URL.Query().Get("id"))
-	if resolveOrWriteError(w, err) {
+	q := r.URL.Query()
+	if id := q.Get("id"); id != "" {
+		_, cwd, err := s.resolveSessionCwd(id)
+		if resolveOrWriteError(w, err) {
+			return
+		}
+		info, _ := git.Describe(cwd)
+		writeJSON(w, 0, info)
 		return
 	}
-	info, _ := git.Describe(cwd)
-	writeJSON(w, 0, info)
+	if rawPath := q.Get("path"); rawPath != "" {
+		path, err := normalizeWorkspacePath(rawPath)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		// Only describe paths the user has actually registered as workspaces.
+		if s.findWorkspaceByPath(path) == nil {
+			writeJSONError(w, http.StatusNotFound, "workspace not found for path")
+			return
+		}
+		info, _ := git.Describe(path)
+		writeJSON(w, 0, info)
+		return
+	}
+	writeJSONError(w, http.StatusBadRequest, "id or path is required")
 }
 
 // handleGitRenameBranch renames the checked-out branch in the session's cwd.

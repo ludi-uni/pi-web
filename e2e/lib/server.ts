@@ -78,7 +78,8 @@ export async function startServer(): Promise<StartedServer> {
       ...process.env,
       PI_CODING_AGENT_DIR: agentDir,
       // Prepend stub `pi` so chat workers spawn the fake, never the real pi.
-      PATH: `${STUB_PI_DIR}:${process.env.PATH ?? ""}`,
+      // Windows uses ; as PATH separator, not :.
+      PATH: `${STUB_PI_DIR}${process.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
       // Ensure auth is off for tests regardless of the dev's shell env.
       PI_WEB_TOKEN: "",
       // Lower the large-session truncation thresholds so the load-earlier spec

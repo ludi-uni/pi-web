@@ -1,17 +1,36 @@
 <script>
   // Horizontally scrollable chip row of one-tap prompt snippets for the mobile
   // composer. Tapping a chip appends its prompt text to the textarea (never
-  // sends directly). The list is frontend-only data loaded from localStorage;
-  // malformed entries fall back to the built-in defaults.
+  // sends directly).
+  //
+  // Precedence: workspace quickPrompts (when the session cwd resolves to a
+  // registered workspace) → global localStorage → built-in defaults.
   //
   // Desktop keeps this hidden via CSS — the row is a small-screen affordance.
   // The component itself is live-only (mounted inside ChatComposer, which is
   // not part of the static export).
-  import { loadQuickPrompts } from './quick-prompts.js';
+  import { onMount } from 'svelte';
+  import { loadQuickPrompts, resolveQuickPrompts } from './quick-prompts.js';
+  import { getWorkspaceForPath } from '../../../index/workspaces.js';
 
-  let { textarea = null, onInsert = () => {} } = $props();
+  let { textarea = null, cwd = '', onInsert = () => {} } = $props();
 
-  const prompts = loadQuickPrompts();
+  // Start with global/default so first paint is synchronous; upgrade to the
+  // workspace's prompts once the registry lookup resolves.
+  let prompts = $state(loadQuickPrompts());
+
+  onMount(() => {
+    if (!cwd) return;
+    let cancelled = false;
+    getWorkspaceForPath(cwd)
+      .then((ws) => {
+        if (!cancelled && ws) prompts = resolveQuickPrompts(ws);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
 
   function insertPrompt(prompt) {
     if (!textarea || !prompt?.prompt) return;

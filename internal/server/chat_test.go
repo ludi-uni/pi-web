@@ -759,6 +759,147 @@ func TestHandleNewSessionRejectsGetMethod(t *testing.T) {
 	}
 }
 
+// ── W4B: explicit model on /api/new-session ──
+
+func TestHandleNewSessionWithExplicitModel(t *testing.T) {
+	root := t.TempDir()
+	fake := &fakeSender{ensureWorkerCh: make(chan struct{}, 1)}
+	s := &Server{
+		sessionsDir: root,
+		chatSender:  fake,
+		models: func(ctx context.Context) (json.RawMessage, error) {
+			return json.RawMessage(`{"models":[{"provider":"openai","id":"gpt-5","name":"GPT-5"}]}`), nil
+		},
+	}
+	projectPath := filepath.Join(root, "test-project")
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session",
+		strings.NewReader(`{"path":`+jsonString(projectPath)+`,"model":"openai/gpt-5"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	id, _ := body["id"].(string)
+	if id == "" {
+		t.Fatal("missing id")
+	}
+	// The session file should carry an implicit model_change entry.
+	projectDir := filepath.Join(root, sessions.EncodeProjectName(projectPath))
+	data, err := os.ReadFile(filepath.Join(projectDir, id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `"type":"model_change"`) ||
+		!strings.Contains(content, `"provider":"openai"`) ||
+		!strings.Contains(content, `"modelId":"gpt-5"`) {
+		t.Fatalf("session file missing implicit model: %s", content)
+	}
+}
+
+func TestHandleNewSessionExplicitModelOverridesSource(t *testing.T) {
+	root := t.TempDir()
+	_ = writeSessionFile(t, root, "--tmp--source--", "source.jsonl")
+	fake := &fakeSender{
+		state: workers.WorkerStatus{State: workers.WorkerStateIdle, ModelProvider: "anthropic", Model: "claude-4", ThinkingLevel: "high"},
+		ensureWorkerCh: make(chan struct{}, 1),
+	}
+	s := &Server{
+		sessionsDir: root,
+		chatSender:  fake,
+		models: func(ctx context.Context) (json.RawMessage, error) {
+			return json.RawMessage(`{"models":[{"provider":"openai","id":"gpt-5","name":"GPT-5"}]}`), nil
+		},
+	}
+	projectPath := filepath.Join(root, "test-project")
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session",
+		strings.NewReader(`{"path":`+jsonString(projectPath)+`,"sourceSessionId":"source.jsonl","model":"openai/gpt-5"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	id, _ := body["id"].(string)
+	projectDir := filepath.Join(root, sessions.EncodeProjectName(projectPath))
+	data, err := os.ReadFile(filepath.Join(projectDir, id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	// Explicit model wins over sourceSessionId's anthropic/claude-4.
+	if !strings.Contains(content, `"provider":"openai"`) {
+		t.Fatalf("explicit model not applied: %s", content)
+	}
+	if strings.Contains(content, `"provider":"anthropic"`) {
+		t.Fatalf("sourceSessionId model should not override explicit model: %s", content)
+	}
+}
+
+func TestHandleNewSessionRejectsInvalidModel(t *testing.T) {
+	root := t.TempDir()
+	s := &Server{
+		sessionsDir: root,
+		models: func(ctx context.Context) (json.RawMessage, error) {
+			return json.RawMessage(`{"models":[{"provider":"openai","id":"gpt-5"}]}`), nil
+		},
+	}
+	projectPath := filepath.Join(root, "test-project")
+	// Model not in registry.
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session",
+		strings.NewReader(`{"path":`+jsonString(projectPath)+`,"model":"openai/nonexistent"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("unavailable model should be 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Malformed model (no provider/model-id separator).
+	req = httptest.NewRequest(http.MethodPost, "/api/new-session",
+		strings.NewReader(`{"path":`+jsonString(projectPath)+`,"model":"gpt-5"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.handleNewSession(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("malformed model should be 400, got %d", w.Code)
+	}
+}
+
+func TestHandleNewSessionWithoutModelPreservesDefault(t *testing.T) {
+	root := t.TempDir()
+	s := &Server{sessionsDir: root}
+	projectPath := filepath.Join(root, "test-project")
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session",
+		strings.NewReader(`{"path":`+jsonString(projectPath)+`}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	id, _ := body["id"].(string)
+	projectDir := filepath.Join(root, sessions.EncodeProjectName(projectPath))
+	data, err := os.ReadFile(filepath.Join(projectDir, id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No model field → no implicit model_change entry.
+	if strings.Contains(string(data), `"type":"model_change"`) {
+		t.Fatalf("default session should not have model_change: %s", data)
+	}
+}
+
 func waitForCondition(t *testing.T, timeout time.Duration, fn func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)

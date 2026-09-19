@@ -42,6 +42,23 @@ export function loadQuickPrompts({ storage = globalThis.localStorage } = {}) {
   }
 }
 
+/**
+ * Resolve the effective quick prompts for a session cwd with the precedence:
+ *   workspace quickPrompts → global (localStorage) → built-in defaults.
+ * `workspace` is the resolved workspace object (or null); its
+ * settings.quickPrompts wins only when it's a non-empty valid array.
+ */
+export function resolveQuickPrompts(workspace, { storage = globalThis.localStorage } = {}) {
+  const wsPrompts = workspace?.settings?.quickPrompts;
+  if (Array.isArray(wsPrompts)) {
+    const valid = wsPrompts.filter(isValidPrompt);
+    if (valid.length > 0) return valid;
+  }
+  return loadQuickPrompts({ storage });
+}
+
+export { isValidPrompt };
+
 export function saveQuickPrompts(prompts, { storage = globalThis.localStorage } = {}) {
   if (!storage) return;
   try {

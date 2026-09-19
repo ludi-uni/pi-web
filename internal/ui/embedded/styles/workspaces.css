@@ -1,0 +1,564 @@
+/* Workspaces page (/workspaces). Inlined into the SPA shell via
+   appStylesheets() (spa_page.go); Svelte component <style> blocks are NOT
+   loaded in the live app, so all workspace styling lives here. Selectors are
+   namespaced under .workspaces-page / .workspace-card / .ws-* to avoid
+   colliding with global classes. */
+
+.workspaces-page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: calc(52px + env(safe-area-inset-top) + 24px) 20px 80px;
+}
+
+.ws-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.ws-error {
+  color: var(--danger, #c0392b);
+  font-size: 13px;
+}
+
+.ws-empty {
+  text-align: center;
+  padding: 48px 16px;
+}
+.ws-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+/* ── Buttons ── */
+.ws-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--dim) 76%, transparent);
+  background: color-mix(in srgb, var(--surface) 54%, transparent);
+  color: var(--muted);
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.ws-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--dim);
+}
+.ws-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ws-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.ws-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--body-bg);
+  font-weight: 600;
+}
+.ws-btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 88%, #fff);
+  color: var(--body-bg);
+}
+.ws-btn-ico {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Workspace list + cards ── */
+.workspace-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workspace-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--dim) 55%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  transition: border-color 0.12s, background 0.12s;
+  cursor: pointer;
+}
+.workspace-card:hover {
+  border-color: var(--dim);
+  background: var(--surface-2);
+}
+.workspace-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.workspace-card--pinned {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.workspace-card-main {
+  flex: 1;
+  min-width: 0;
+}
+.workspace-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.workspace-card-folder {
+  display: inline-flex;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.workspace-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  text-decoration: none;
+  min-width: 0;
+}
+a.workspace-card-name:hover {
+  color: var(--accent);
+}
+a.workspace-card-name:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.workspace-pin-badge {
+  display: inline-flex;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.workspace-card-path {
+  font-family: var(--font-code, monospace);
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 3px;
+}
+.workspace-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Git status badge — compact, non-interactive, never color-only. */
+.ws-git {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-code, monospace);
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+}
+.ws-git-branch {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+  color: var(--text);
+}
+.ws-git-sep {
+  color: var(--dim);
+}
+.ws-git-status {
+  flex-shrink: 0;
+}
+.ws-git--dirty .ws-git-status {
+  color: var(--accent);
+}
+.ws-git--unavailable {
+  color: var(--dim);
+  font-style: italic;
+}
+.wsd-git {
+  margin-top: 7px;
+}
+.wsd-git .ws-git {
+  font-size: 12px;
+}
+.wsd-git .ws-git-branch {
+  max-width: 320px;
+}
+.workspace-card-observer {
+  display: contents;
+}
+
+.workspace-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.workspace-pin-btn,
+.workspace-menu-btn {
+  padding: 0 8px;
+}
+
+.workspace-rename-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--body-bg);
+  color: var(--text);
+}
+
+/* Card overflow menu (rename / remove). */
+.workspace-menu-wrap {
+  position: relative;
+}
+.workspace-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--dim) 70%, transparent);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+}
+.workspace-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 9px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.workspace-menu-item:hover {
+  background: var(--hover, color-mix(in srgb, var(--accent) 14%, transparent));
+}
+.workspace-menu-item--danger:hover {
+  color: var(--danger, #c0392b);
+  background: color-mix(in srgb, var(--danger, #c0392b) 14%, transparent);
+}
+
+/* ── Add-workspace sheet extras ── */
+.ws-field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px 0 4px;
+}
+.ws-suggestions {
+  margin: 4px 0 6px;
+}
+.ws-suggestions-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.ws-suggestion-chip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-family: var(--font-code, monospace);
+  font-size: 12px;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border: 1px solid color-mix(in srgb, var(--dim) 60%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 54%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  word-break: break-all;
+  white-space: normal;
+}
+.ws-suggestion-chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.ws-suggestion-chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Floating "+" action. Reuses the sessions-index .new-session-btn styling;
+   hidden on desktop (header button is used there), shown on mobile. The base
+   .new-session-btn-mobile positions it fixed — we only gate display. */
+.ws-fab {
+  display: none;
+  right: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+}
+
+/* ── Workspace detail (/workspace?id=…) ── */
+.wsd-header {
+  padding: 4px 2px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dim) 45%, transparent);
+  margin-bottom: 18px;
+}
+.wsd-title-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.wsd-name {
+  font-size: 20px;
+  font-weight: 650;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.wsd-path {
+  font-family: var(--font-code, monospace);
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsd-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.wsd-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.wsd-new-session-btn {
+  min-height: 38px;
+  padding: 0 16px;
+}
+
+.wsd-sessions-heading {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.wsd-session-grid {
+  /* reuse the index session-card grid; single column on narrow screens is
+     already handled by the shared media query. */
+}
+.wsd-empty-sessions {
+  padding: 32px 16px;
+}
+
+/* ── Workspace settings (W4A) ── */
+.wsd-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.wsd-preset b {
+  color: var(--text);
+  font-weight: 600;
+}
+.wsd-preset-warn {
+  color: var(--warning, #b45309);
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.wsd-settings {
+  margin-bottom: 18px;
+  border: 1px solid color-mix(in srgb, var(--dim) 45%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.wsd-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: color-mix(in srgb, var(--surface) 50%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.wsd-settings-toggle:hover {
+  background: var(--surface-2);
+}
+.wsd-settings-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.wsd-settings-body {
+  padding: 4px 14px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--dim) 35%, transparent);
+}
+.wsd-field {
+  margin-top: 10px;
+}
+.wsd-field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.wsd-field-hint {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 3px;
+}
+.wsd-select {
+  width: 100%;
+  max-width: 320px;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--dim) 70%, transparent);
+  border-radius: 7px;
+  background: var(--body-bg);
+  color: var(--text);
+}
+.wsd-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.wsd-qp-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wsd-qp-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+.wsd-qp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.wsd-qp-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.wsd-qp-label {
+  width: 130px;
+  flex-shrink: 0;
+}
+.wsd-qp-prompt {
+  flex: 1;
+  min-width: 0;
+}
+.wsd-qp-label,
+.wsd-qp-prompt {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--dim) 70%, transparent);
+  border-radius: 6px;
+  background: var(--body-bg);
+  color: var(--text);
+}
+.wsd-qp-remove {
+  padding: 0 8px;
+  min-height: 30px;
+}
+.wsd-qp-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .workspaces-page {
+    padding: calc(52px + env(safe-area-inset-top) + 16px) 14px 96px;
+  }
+  .workspace-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .workspace-card-actions {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    width: 100%;
+  }
+  .workspace-card-actions .ws-btn {
+    min-height: 42px; /* comfortable touch target */
+  }
+  .workspace-new-session {
+    justify-content: center;
+  }
+  .workspaces-header-new {
+    display: none;
+  }
+  .ws-fab {
+    display: flex;
+  }
+
+  /* Detail page: full-width New Session, generous session touch targets. */
+  .wsd-actions {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    width: 100%;
+  }
+  .wsd-actions .ws-btn {
+    min-height: 44px;
+  }
+  .wsd-new-session-btn {
+    justify-content: center;
+  }
+  .wsd-session-grid .session-card {
+    min-height: 44px;
+  }
+}
