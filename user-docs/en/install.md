@@ -228,6 +228,26 @@ PI_WEB_TOKEN=$(openssl rand -hex 16) pi-web
 >
 > Clients can pass the token via the `Authorization: Bearer <token>` header, the `X-Pi-Token` header, or once via `?token=<token>` (which sets a `pi_token` cookie for subsequent requests). Tokens passed via `?token=` end up in browser history, server access logs, and `Referer` headers from any links on the page — prefer the header form for anything beyond the initial bookmark.
 
+### Reverse proxies (Cloudflare Tunnel, nginx, …)
+
+When a reverse proxy terminates TLS and forwards to the loopback listener, the
+public hostname is not loopback, so tokenless requests are rejected with
+`unrecognized host`. Allowlist the public hostname explicitly:
+
+```bash
+# Comma-separated; bare hostnames or URLs both work
+PI_WEB_ALLOWED_HOSTS=pi.example.com,pi2.example.com pi-web
+```
+
+On Windows auto-start installs, add it to `~/.config/pi-web/env`:
+
+```
+PI_WEB_ALLOWED_HOSTS=pi.example.com
+```
+
+With `PI_WEB_TOKEN` set this is optional (the token authenticates any host);
+without a token only the listed hosts — plus loopback — can reach the server.
+
 ## Browser Chat
 
 Open a session page and use the composer at the bottom to continue that exact session.

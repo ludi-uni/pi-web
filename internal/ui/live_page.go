@@ -122,10 +122,13 @@ func renderLiveDocumentStart(data liveDocumentData) string {
 		b.WriteByte('\n')
 	}
 	b.WriteString("<link rel=\"icon\" type=\"image/svg+xml\" href=\"/icon.svg\">\n")
-	b.WriteString("<link rel=\"apple-touch-icon\" href=\"/icon.svg\">\n")
+	// iOS requires a PNG apple-touch-icon (SVG is ignored) and its own
+	// capable meta — mobile-web-app-capable alone doesn't enable standalone.
+	b.WriteString("<link rel=\"apple-touch-icon\" href=\"/apple-touch-icon.png\">\n")
 	b.WriteString("<link rel=\"manifest\" href=\"/manifest.webmanifest\">\n")
 	b.WriteString("<meta name=\"theme-color\" content=\"#0e0e13\">\n")
 	b.WriteString("<meta name=\"mobile-web-app-capable\" content=\"yes\">\n")
+	b.WriteString("<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n")
 	b.WriteString("<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n")
 	b.WriteString("<meta name=\"apple-mobile-web-app-title\" content=\"Pi Sessions\">\n")
 	b.WriteString("<meta name=\"pi-web-theme\" content=\"")

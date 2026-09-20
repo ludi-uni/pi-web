@@ -123,6 +123,7 @@ export default {
   'session.filterAllTitle': 'Tunjukkan semuanya',
   'session.resizeTree': 'Ubah saiz bar pokok sesi',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'Copy message text',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

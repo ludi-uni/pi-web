@@ -123,6 +123,7 @@ export default {
   'session.filterAllTitle': 'បង្ហាញអ្វីៗទាំងអស់',
   'session.resizeTree': 'ប្ដូរទំហំរបារមែកធាងវគ្គ',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'Copy message text',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

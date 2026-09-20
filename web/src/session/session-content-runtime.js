@@ -150,6 +150,44 @@ export function wireSessionContentRuntime({
       copyToClipboard(url, copyBtn, { documentImpl, navigatorImpl: target.navigator });
       return;
     }
+    const copyTextBtn = e.target.closest?.('.copy-text-btn');
+    if (copyTextBtn) {
+      e.stopPropagation();
+      const entry = model.entries.find((en) => en.id === copyTextBtn.dataset.entryId);
+      const content = entry?.message?.content;
+      const text = Array.isArray(content)
+        ? content
+            .filter((b) => b.type === 'text' && b.text && b.text.trim())
+            .map((b) => b.text)
+            .join('\n')
+        : typeof content === 'string'
+          ? content
+          : '';
+      copyToClipboard(text, copyTextBtn, { documentImpl, navigatorImpl: target.navigator });
+      return;
+    }
+    const copyBlockBtn = e.target.closest?.('.copy-block-btn');
+    if (copyBlockBtn) {
+      e.stopPropagation();
+      // Copy the code's plain text — textContent skips the highlight.js span
+      // markup and any button SVG inside the wrapper. In an expandable tool
+      // output the preview shows a truncated copy, so prefer the sibling
+      // .output-full when present. Tool outputs without a language render
+      // <div> lines instead of <code>, so fall back to the wrapper's content.
+      const block = copyBlockBtn.closest('.code-block');
+      const scope = block?.closest('.tool-output.expandable') ?? block;
+      const codeEl =
+        scope?.querySelector('.output-full code') ??
+        block?.querySelector('code') ??
+        block?.querySelector('pre') ??
+        block;
+      const text = codeEl ? codeEl.textContent : '';
+      copyToClipboard(text, copyBlockBtn, {
+        documentImpl,
+        navigatorImpl: target.navigator,
+      });
+      return;
+    }
     const forkBtn = e.target.closest?.('.fork-btn');
     if (forkBtn) {
       e.stopPropagation();

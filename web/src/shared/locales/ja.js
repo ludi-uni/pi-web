@@ -124,6 +124,7 @@ export default {
   'session.filterAllTitle': 'すべて表示',
   'session.resizeTree': 'セッションツリーのサイドバーをリサイズ',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'このメッセージのテキストをコピー',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

@@ -124,6 +124,7 @@ export default {
   'session.filterAllTitle': 'Alles anzeigen',
   'session.resizeTree': 'Sitzungsbaum-Seitenleiste anpassen',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'Nachrichtentext kopieren',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

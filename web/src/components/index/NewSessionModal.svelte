@@ -4,6 +4,7 @@
   let {
     open = false,
     recent = [],
+    workspaces = [],
     path = $bindable(''),
     creating = false,
     error = '',
@@ -13,6 +14,11 @@
 
   function chooseRecent(loc) {
     path = loc;
+    requestAnimationFrame(() => document.getElementById('sessionPath')?.focus());
+  }
+
+  function chooseWorkspace(ws) {
+    path = ws.path;
     requestAnimationFrame(() => document.getElementById('sessionPath')?.focus());
   }
 
@@ -48,6 +54,17 @@
       </button>
     </div>
     <h2>{t('index.startNewSession')}</h2>
+    {#if workspaces.length > 0}
+      <div class="ws-suggestions" data-testid="new-session-workspaces">
+        <div class="ws-suggestions-label">{t('workspaces.suggested')}</div>
+        {#each workspaces as ws (ws.id)}
+          <button type="button" class="ws-suggestion-chip" onclick={() => chooseWorkspace(ws)}>
+            <bdi>{ws.name}</bdi>
+            <span class="ws-suggestion-path">{ws.path}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
     <div class="recent-locations" id="recentLocations">
       {#each recent as loc (loc)}
         <button type="button" class="recent-chip" onclick={() => chooseRecent(loc)}>{loc}</button>

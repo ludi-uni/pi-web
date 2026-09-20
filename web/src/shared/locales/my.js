@@ -124,6 +124,7 @@ export default {
   'session.filterAllTitle': 'အားလုံး ပြ',
   'session.resizeTree': 'ဆက်ရှင်သစ်ပင် ဘေးဘားတန်း အရွယ်ပြောင်း',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'Copy message text',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

@@ -30,6 +30,8 @@
     layoutStorageKey,
     normalizeSession,
   } from '../index/sessions.js';
+  import { loadWorkspaces } from '../index/workspaces.js';
+  import WorkspaceQuickAccess from '../components/index/WorkspaceQuickAccess.svelte';
 
   const PAGE_SIZE = 100;
 
@@ -52,6 +54,7 @@
   let projectsFilterEnabled = $state(false);
   let projectsBusy = $state(false);
   let projectsError = $state('');
+  let workspaces = $state([]);
   let refreshInflight = false;
 
   const totalSessionsLabel = $derived(
@@ -130,11 +133,11 @@
     writeSetting(layoutStorageKey, layout, { storage: localStorage });
   }
 
-  async function openNewSessionModal() {
+  async function openNewSessionModal(pathPreset) {
     closeMenu();
     projectsOpen = false;
     newSessionOpen = true;
-    newSessionPath = '';
+    newSessionPath = typeof pathPreset === 'string' ? pathPreset : '';
     newSessionError = '';
     document.body?.classList.add('modal-sheet-open');
     try {
@@ -292,6 +295,9 @@
     window.addEventListener('click', click);
 
     refreshSessions();
+    loadWorkspaces()
+      .then((list) => (workspaces = list))
+      .catch(() => {});
 
     return () => {
       document.title = previousTitle;
@@ -315,6 +321,8 @@
   onLayoutChange={setLayout}
   onSchedules={() => navigate('/schedules', { state: backState() })}
 />
+
+<WorkspaceQuickAccess {workspaces} onNewSession={openNewSessionModal} />
 
 <HomeMenu
   open={menuOpen}
@@ -354,6 +362,7 @@
 <NewSessionModal
   open={newSessionOpen}
   recent={recentLocations}
+  {workspaces}
   bind:path={newSessionPath}
   {creating}
   error={newSessionError}

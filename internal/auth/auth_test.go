@@ -416,3 +416,17 @@ func TestAuthAllowsUnknownHostWhenExplicitlyConfigured(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 }
+
+func TestAuthAllowsEnvConfiguredHostWhenTokenDisabled(t *testing.T) {
+	// app.Main wires PI_WEB_ALLOWED_HOSTS entries via AllowHost; verify a
+	// comma-separated-style hostname entry grants tokenless access.
+	a := New("")
+	a.AllowHost("pi.example.com")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "https://pi.example.com/api/sessions", nil)
+	a.Wrap(okHandler)(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+}

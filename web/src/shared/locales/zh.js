@@ -123,6 +123,7 @@ export default {
   'session.filterAllTitle': '显示全部',
   'session.resizeTree': '调整会话树侧边栏大小',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': '复制消息文本',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

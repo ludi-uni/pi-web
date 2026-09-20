@@ -2875,13 +2875,14 @@
       z-index: 10;
     }
 
-    .label-btn {
+    /* Copy assistant text button - appears on hover, left of the copy-link btn */
+    .copy-text-btn {
       position: absolute;
       top: 8px;
       right: 42px;
       width: 28px;
       height: 28px;
-      padding: 6.5px;
+      padding: 6px;
       background: var(--container-bg);
       border: 1px solid var(--dim);
       border-radius: 4px;
@@ -2895,7 +2896,7 @@
       z-index: 10;
     }
 
-    .fork-btn {
+    .label-btn {
       position: absolute;
       top: 8px;
       right: 76px;
@@ -2915,8 +2916,29 @@
       z-index: 10;
     }
 
+    .fork-btn {
+      position: absolute;
+      top: 8px;
+      right: 110px;
+      width: 28px;
+      height: 28px;
+      padding: 6.5px;
+      background: var(--container-bg);
+      border: 1px solid var(--dim);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s, color 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
     .user-message:hover .copy-link-btn,
     .assistant-message:hover .copy-link-btn,
+    .assistant-message:hover .copy-text-btn,
     .user-message:hover .label-btn,
     .assistant-message:hover .label-btn,
     .user-message:hover .fork-btn,
@@ -2925,6 +2947,7 @@
     }
 
     .copy-link-btn:hover,
+    .copy-text-btn:hover,
     .label-btn:hover,
     .fork-btn:hover {
       background: var(--accent);
@@ -2932,10 +2955,54 @@
       border-color: var(--accent);
     }
 
-    .copy-link-btn.copied {
+    .copy-link-btn.copied,
+    .copy-text-btn.copied,
+    .copy-block-btn.copied {
       background: var(--success, #22c55e);
       color: white;
       border-color: var(--success, #22c55e);
+    }
+
+    /* Per-code-block copy. The wrapper keeps position:relative so the button
+       overlays the <pre> corner without taking layout space. Desktop keeps the
+       button hidden until the block is hovered or the button is focused —
+       matching the existing message-action pattern. Mobile overrides below. */
+    .code-block {
+      position: relative;
+    }
+
+    .copy-block-btn {
+      /* The .code-block wrapper doesn't scroll (its <pre> does), so an
+         absolutely-positioned button stays pinned to the visible corner
+         during horizontal scroll. */
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 28px;
+      height: 28px;
+      padding: 6px;
+      background: var(--container-bg);
+      border: 1px solid var(--dim);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s, color 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .code-block:hover .copy-block-btn,
+    .copy-block-btn:focus-visible {
+      opacity: 1;
+    }
+
+    .copy-block-btn:hover {
+      background: var(--accent);
+      color: var(--body-bg);
+      border-color: var(--accent);
     }
 
     .label-modal-backdrop {
@@ -4043,6 +4110,50 @@
 
       .follow-button.visible {
         transform: scale(1);
+      }
+
+      /* Message + code-block actions: always visible (no hover on touch),
+         42px touch targets, and muted so they don't compete with the text.
+         The extra top padding on the message keeps the absolutely-positioned
+         buttons clear of the first line of text. */
+      .copy-link-btn,
+      .copy-text-btn,
+      .label-btn,
+      .fork-btn {
+        opacity: 0.55;
+        width: 42px;
+        height: 42px;
+        padding: 10px;
+      }
+
+      .copy-link-btn:active,
+      .copy-text-btn:active,
+      .label-btn:active,
+      .fork-btn:active,
+      .copy-link-btn:focus-visible,
+      .copy-text-btn:focus-visible,
+      .label-btn:focus-visible,
+      .fork-btn:focus-visible {
+        opacity: 1;
+      }
+
+      /* Buttons sit at top:8px/right:8px+ over the message; pad the top so
+         the first line of text (and the timestamp) clears the 42px targets. */
+      .assistant-message,
+      .user-message {
+        padding-top: 50px;
+      }
+
+      .copy-block-btn {
+        opacity: 0.55;
+        width: 42px;
+        height: 42px;
+        padding: 10px;
+      }
+
+      .copy-block-btn:active,
+      .copy-block-btn:focus-visible {
+        opacity: 1;
       }
 
       /* Per-tool-call collapse (mobile only). The card shows a one-line

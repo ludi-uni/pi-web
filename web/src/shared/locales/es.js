@@ -124,6 +124,7 @@ export default {
   'session.filterAllTitle': 'Mostrar todo',
   'session.resizeTree': 'Redimensionar la barra del árbol de sesión',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'Copiar texto del mensaje',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

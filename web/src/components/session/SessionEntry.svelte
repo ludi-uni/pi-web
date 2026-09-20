@@ -5,7 +5,7 @@
   // keeps its `entry-<id>` anchor so annotation offsets + scroll/toggle survive.
   // Shared by the live app and the static export (model passed as a prop).
   import { marked } from 'marked';
-  import { icon, GitFork, Link2, Tag } from '../../shared/icons.js';
+  import { icon, Copy, GitFork, Link2, Tag } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { safeMarkedParse } from '../../session/render/markdown.js';
   import { formatTimestamp } from '../../session/render/entry-format.js';
@@ -35,6 +35,15 @@
   const userImages = $derived(
     Array.isArray(msg?.content) ? msg.content.filter((b) => b.type === 'image') : [],
   );
+  // Raw text of the assistant's reply blocks — what the copy-text button puts
+  // on the clipboard (markdown source, not rendered HTML).
+  const assistantText = $derived.by(() => {
+    if (!msg || msg.role !== 'assistant' || !Array.isArray(msg.content)) return '';
+    return msg.content
+      .filter((b) => b.type === 'text' && b.text.trim())
+      .map((b) => b.text)
+      .join('\n');
+  });
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
@@ -53,6 +62,14 @@
     >{@html icon(Link2, { size: 14 })}</button
   >
 {/snippet}
+{#snippet copyText(id)}
+  <button
+    class="copy-text-btn"
+    data-entry-id={id}
+    title={t('session.copyText')}
+    aria-label={t('session.copyText')}>{@html icon(Copy, { size: 13 })}</button
+  >
+{/snippet}
 {#snippet timestamp()}{#if ts}<div class="message-timestamp">{ts}</div>{/if}{/snippet}
 
 {#if msg && msg.role === 'user'}
@@ -69,7 +86,9 @@
   </div>
 {:else if msg && msg.role === 'assistant'}
   <div class="assistant-message" id={`entry-${entry.id}`}>
-    {@render actions(entry.id)}{@render timestamp()}
+    {@render actions(entry.id)}{#if assistantText}{@render copyText(
+        entry.id,
+      )}{/if}{@render timestamp()}
     {#each msg.content as block, blockIndex (blockIndex)}
       {#if block.type === 'text' && block.text.trim()}<div class="assistant-text markdown-content">
           {@html md(block.text)}

@@ -87,6 +87,13 @@
     if (window.getSelection && window.getSelection().toString()) return;
     expanded = !expanded;
   }
+
+  function onCardClick(e) {
+    // Copy buttons inside a collapsible card must not toggle it — the click
+    // still bubbles to the delegated #messages copy handler.
+    if (e.target.closest?.('.copy-block-btn')) return;
+    toggleCollapse();
+  }
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
@@ -103,7 +110,7 @@
     class="tool-execution tool-execution--collapsible {statusClass}"
     class:tool-execution--collapsed={!isExpanded}
     id={resultEntry ? `entry-${resultEntry.id}` : undefined}
-    onclick={toggleCollapse}
+    onclick={onCardClick}
     role="button"
     tabindex="0"
     onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleCollapse()}

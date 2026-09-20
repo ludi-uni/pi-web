@@ -180,6 +180,23 @@ pi-web
 >
 > クライアントは `Authorization: Bearer <token>` ヘッダー、`X-Pi-Token` ヘッダー、または初回のみ `?token=<token>`（後続リクエスト用に `pi_token` クッキーを設定）でトークンを渡せます。`?token=` で渡されたトークンはブラウザ履歴、サーバーアクセスログ、ページ上のリンクからの `Referer` ヘッダーに残ります — 初回ブックマーク以降はヘッダー形式を推奨します。
 
+### リバースプロキシ（Cloudflare Tunnel、nginx など）
+
+リバースプロキシがTLSを終端してループバックへ転送する場合、公開ホスト名はループバックではないため、トークン無しのリクエストは `unrecognized host` で拒否されます。公開ホスト名を明示的に許可リストへ追加してください:
+
+```bash
+# カンマ区切り。裸のホスト名でもURLでも可
+PI_WEB_ALLOWED_HOSTS=pi.example.com,pi2.example.com pi-web
+```
+
+Windowsの自動起動インストールでは `~/.config/pi-web/env` に追加します:
+
+```
+PI_WEB_ALLOWED_HOSTS=pi.example.com
+```
+
+`PI_WEB_TOKEN` を設定済みなら任意です（トークンがあれば全ホストで認証されます）。トークン無しの場合は、リストしたホストとループバックだけがアクセスできます。
+
 ## ブラウザチャット
 
 セッションページを開き、下部のコンポーザーを使ってそのセッションを正確に継続します。

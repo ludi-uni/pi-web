@@ -129,6 +129,8 @@ export default {
   'workspaces.presetPermissions': 'Permissions',
   'workspaces.presetQuickPrompts': 'Quick Prompts',
   'workspaces.modelUnavailable': 'unavailable',
+  'workspaces.quickAccess': 'Quick access',
+  'workspaces.browseAll': 'Browse all',
 
   // ── Schedules ──
   'schedules.navTitle': 'Schedules',
@@ -262,6 +264,7 @@ export default {
   'session.resizeTree': 'Resize session sidebar',
   'session.labelEntry': 'Add or edit label',
   'session.copyText': 'Copy message text',
+  'session.copyCode': 'Copy code',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

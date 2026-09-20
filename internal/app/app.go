@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,6 +29,11 @@ import (
 const defaultPort = "31415"
 const tokenEnvVar = "PI_WEB_TOKEN"
 const developmentEnvVar = "PI_WEB_DEV"
+
+// allowedHostsEnvVar lists additional hostnames that may reach the server
+// without a token, e.g. a Cloudflare Tunnel public hostname proxying to the
+// loopback listener. Comma-separated; entries may be bare hostnames or URLs.
+const allowedHostsEnvVar = "PI_WEB_ALLOWED_HOSTS"
 
 // Main runs the pi-web application. version is supplied by cmd/pi-web so
 // release builds can set it with -ldflags "-X main.version=...".
@@ -67,6 +73,11 @@ func Main(version string) {
 	}
 	authMiddleware := auth.New(token)
 	authMiddleware.AllowHost(bindHost)
+	for _, h := range strings.Split(os.Getenv(allowedHostsEnvVar), ",") {
+		if h = strings.TrimSpace(h); h != "" {
+			authMiddleware.AllowHost(h)
+		}
+	}
 	if *insecure {
 		authMiddleware.AllowAnyHost()
 	}

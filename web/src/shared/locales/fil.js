@@ -124,6 +124,7 @@ export default {
   'session.filterAllTitle': 'Ipakita ang lahat',
   'session.resizeTree': 'I-resize ang sidebar ng session tree',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'Copy message text',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',

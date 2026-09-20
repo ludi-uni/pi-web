@@ -123,6 +123,7 @@ export default {
   'session.filterAllTitle': 'Hiển thị mọi thứ',
   'session.resizeTree': 'Thay đổi kích thước thanh cây phiên',
   'session.labelEntry': 'Add or edit label',
+  'session.copyText': 'Copy message text',
   'session.labelInput': 'Label',
   'session.removeLabel': 'Remove label',
   'session.labelPrompt': 'Label (empty to remove):',
