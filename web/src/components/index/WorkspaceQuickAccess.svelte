@@ -12,8 +12,16 @@
 
   let creatingFor = $state('');
 
-  const pinnedWorkspaces = $derived(workspaces.filter((w) => w.pinned));
-  const hasPinned = $derived(pinnedWorkspaces.length > 0);
+  const sortedWorkspaces = $derived(
+    [...workspaces].sort((a, b) => {
+      if (a.pinned !== b.pinned) return b.pinned - a.pinned;
+      const aTime = Date.parse(a.lastOpenedAt || '') || 0;
+      const bTime = Date.parse(b.lastOpenedAt || '') || 0;
+      if (aTime !== bTime) return bTime - aTime;
+      return (a.name || '').localeCompare(b.name || '');
+    }),
+  );
+  const hasWorkspaces = $derived(sortedWorkspaces.length > 0);
 
   async function quickStart(workspace) {
     if (creatingFor) return;
@@ -36,7 +44,7 @@
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG from icons.js -->
 
-{#if hasPinned}
+{#if hasWorkspaces}
   <div class="workspace-quick-access" data-testid="workspace-quick-access">
     <div class="workspace-quick-access-header">
       <span class="workspace-quick-access-label">{t('workspaces.quickAccess')}</span>
@@ -50,10 +58,11 @@
       </a>
     </div>
     <div class="workspace-quick-access-list">
-      {#each pinnedWorkspaces as workspace (workspace.id)}
+      {#each sortedWorkspaces as workspace (workspace.id)}
         <button
           type="button"
           class="workspace-quick-chip"
+          class:workspace-quick-chip--pinned={workspace.pinned}
           data-testid="workspace-quick-chip"
           disabled={creatingFor === workspace.id}
           onclick={() => quickStart(workspace)}
@@ -62,6 +71,9 @@
             >{@html icon(Folder, { size: 14 })}</span
           >
           <span class="workspace-quick-chip-name">{workspace.name}</span>
+          {#if workspace.sessionCount > 0}
+            <span class="workspace-quick-chip-count">{workspace.sessionCount}</span>
+          {/if}
           {#if creatingFor === workspace.id}
             <span class="workspace-quick-chip-loading">{t('workspaces.creating')}</span>
           {/if}

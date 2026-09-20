@@ -15,11 +15,27 @@ function workspace(overrides = {}) {
 }
 
 describe('WorkspaceQuickAccess', () => {
-  it('renders nothing when no workspaces are pinned', () => {
+  it('renders nothing when no workspaces exist', () => {
     const { container } = render(WorkspaceQuickAccess, {
-      props: { workspaces: [workspace({ pinned: false })] },
+      props: { workspaces: [] },
     });
     expect(container.querySelector('[data-testid="workspace-quick-access"]')).toBeNull();
+  });
+
+  it('renders all workspaces sorted by pinned then lastOpenedAt', () => {
+    render(WorkspaceQuickAccess, {
+      props: {
+        workspaces: [
+          workspace({ id: 'w1', name: 'unpinned-old', pinned: false, lastOpenedAt: '2024-01-01' }),
+          workspace({ id: 'w2', name: 'pinned', pinned: true }),
+          workspace({ id: 'w3', name: 'unpinned-new', pinned: false, lastOpenedAt: '2024-06-01' }),
+        ],
+      },
+    });
+    const chips = screen.getAllByTestId('workspace-quick-chip');
+    expect(chips[0].textContent).toContain('pinned');
+    expect(chips[1].textContent).toContain('unpinned-new');
+    expect(chips[2].textContent).toContain('unpinned-old');
   });
 
   it('renders pinned workspaces as quick-start chips', () => {

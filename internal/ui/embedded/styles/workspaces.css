@@ -332,16 +332,31 @@ a.workspace-card-name:focus-visible {
   opacity: 0.55;
   cursor: default;
 }
+.workspace-quick-chip--pinned {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
 .workspace-quick-chip-icon {
   display: inline-flex;
   color: var(--muted);
   flex-shrink: 0;
+}
+.workspace-quick-chip--pinned .workspace-quick-chip-icon {
+  color: var(--accent);
 }
 .workspace-quick-chip-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 180px;
+}
+.workspace-quick-chip-count {
+  font-size: 10px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--dim) 30%, transparent);
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 .workspace-quick-chip-loading {
   font-size: 11px;
@@ -352,13 +367,20 @@ a.workspace-card-name:focus-visible {
   .workspace-quick-access {
     padding: 0 16px 12px;
   }
+  .workspace-quick-access-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
   .workspace-quick-chip {
-    min-height: 42px;
-    flex: 1 1 calc(50% - 4px);
-    justify-content: center;
+    min-height: 44px;
+    justify-content: flex-start;
+    padding: 0 10px;
   }
   .workspace-quick-chip-name {
-    max-width: 120px;
+    max-width: none;
+    flex: 1;
+    text-align: left;
   }
 }
 

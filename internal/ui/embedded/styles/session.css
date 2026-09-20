@@ -4144,11 +4144,17 @@
         padding-top: 50px;
       }
 
+      /* Mobile: move the copy button below the code block for easier reach.
+         The button becomes a static block-level element at the bottom of the
+         code-block wrapper, full-width and taller for touch. */
       .copy-block-btn {
-        opacity: 0.55;
-        width: 42px;
+        position: static;
+        width: 100%;
         height: 42px;
-        padding: 10px;
+        margin-top: 4px;
+        border-radius: 6px;
+        opacity: 0.55;
+        font-size: 12px;
       }
 
       .copy-block-btn:active,
