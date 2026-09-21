@@ -9,7 +9,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build": "vite build && npm run build:export",
-    "build:export": "vite build --config vite.config.export.js && cp dist-export/export.js ../internal/ui/embedded/export/export.js",
+    "build:export": "vite build --config vite.config.export.js && node scripts/copy-export.mjs",
     "dev": "npm run build:export && vite build --watch"
   },
   "dependencies": {

@@ -1,7 +1,9 @@
 import { getJSON, postJSON } from '../../shared/api.js';
 
-export function getDiff(sessionId, { getImpl = getJSON } = {}) {
-  return getImpl(`/api/git/diff?id=${encodeURIComponent(sessionId)}`);
+export function getDiff(sessionId, { getImpl = getJSON, mode = 'working' } = {}) {
+  return getImpl(
+    `/api/git/diff?id=${encodeURIComponent(sessionId)}&mode=${encodeURIComponent(mode)}`,
+  );
 }
 
 export function getReviewComments(sessionId, { getImpl = getJSON } = {}) {

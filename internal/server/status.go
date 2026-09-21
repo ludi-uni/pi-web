@@ -96,20 +96,34 @@ func (s *Server) recomputeAndBroadcastStatus(sessionID string) {
 	data, _ := json.Marshal(s.runningStatusPayload(sessionID, now))
 	s.broadcast(globalSessID, "event: status-delta\ndata: "+string(data))
 
-	// Transition running → idle: fire a push notification so subscribed
-	// clients learn the response is ready even when the tab is closed
-	// or the device is locked. Scheduled runs get a schedule-specific push
-	// (shown even in the foreground) instead of the generic one.
+	// Keep the attention model in sync with the execution transition.
+	// idle → running clears waiting/failed (the user replied or a new prompt
+	// superseded the question). running → idle records what the session now
+	// needs (waiting / failed / completed) so the Inbox and push can react.
+	if !was && now {
+		s.clearAttentionFlags(sessionID)
+	}
+
+	// Transition running → idle: classify the new attention state, then fire a
+	// push notification so subscribed clients learn the session needs them even
+	// when the tab is closed or the device is locked. Scheduled runs get a
+	// schedule-specific push (shown even in the foreground) instead.
 	if was && !now && s.push != nil && !s.disableBackgroundJobs {
+		kind := s.updateAttentionOnIdle(sessionID)
 		if name, ok := s.scheduleNameForSession(sessionID); ok {
 			s.startTask(func(context.Context) {
 				s.push.NotifyScheduleDone(name, sessionID)
 			})
-		} else {
+		} else if kind != attentionNone {
+			title := s.attentionTitle(sessionID)
 			s.startTask(func(context.Context) {
-				s.push.NotifyDone(sessionID)
+				s.push.NotifyAttention(sessionID, string(kind), title)
 			})
 		}
+	} else if was && !now {
+		// No push manager (or background jobs disabled): still record the
+		// attention state so the Inbox is correct.
+		s.updateAttentionOnIdle(sessionID)
 	}
 
 	// Transition running → idle is also the cue for the autonomous queue

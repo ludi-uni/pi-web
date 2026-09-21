@@ -61,3 +61,16 @@ func BuildSetThinkingLevelCommand(id, level string) map[string]any {
 func BuildGetCommandsCommand(id string) map[string]any {
 	return map[string]any{"id": id, "type": "get_commands"}
 }
+
+// BuildApprovalResponseCommand builds the approval_response RPC that carries an
+// operator decision back to pi. decision must be "approve" or "reject"; the
+// worker validates it before sending. Only the approval id + decision cross
+// the wire — the action payload stays server-side in pi's pending store.
+func BuildApprovalResponseCommand(id, approvalID, decision string) map[string]any {
+	return map[string]any{
+		"id":          id,
+		"type":        "approval_response",
+		"approval_id": approvalID,
+		"decision":    decision,
+	}
+}

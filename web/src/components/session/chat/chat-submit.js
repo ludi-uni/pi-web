@@ -12,6 +12,7 @@ export function setupChatSubmission({
   updateSendEnabled = () => {},
   FormDataImpl = FormData,
   CustomEventImpl = CustomEvent,
+  onSent = () => {},
 } = {}) {
   let refreshWorkerStatus = async () => {};
 
@@ -80,7 +81,10 @@ export function setupChatSubmission({
     updateSendEnabled();
 
     const sent = await sendChatMessage(message, filesToSend);
-    if (!sent) {
+    if (sent) {
+      // Clear the autosaved draft once pi accepted the message.
+      onSent();
+    } else {
       textarea.value = typed;
       attachments.restore({ files: filesToSend, textAttachments: textAttachmentsToSend });
       autoResizeTextarea();

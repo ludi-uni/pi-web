@@ -23,6 +23,8 @@ import { navigateInitialChatLeaf } from './initial-navigation.js';
 import { ChatToolbarState } from './chat-toolbar-state.svelte.js';
 import { setupChatSubmission } from './chat-submit.js';
 import { setupSteerQueue } from './steer-queue.js';
+import { setupDraftAutosave } from './draft-store.js';
+import { setupLargePasteNotice } from './paste.js';
 import { QueueStore } from './queue-store.svelte.js';
 import { createChatSelectorLoaders } from './selector-loaders.js';
 
@@ -186,6 +188,23 @@ export function runChatComposer({
       setChatStatus(text, cls);
     }
 
+    // Per-session draft autosave: restores an unsent draft on reload and
+    // saves on input (debounced). Cleared after a successful send.
+    const draft = setupDraftAutosave({
+      sessionId,
+      textarea,
+      storage: getComposerStorage({ windowImpl: window }),
+      windowImpl: window,
+    });
+
+    // Large-paste affordance: collapses the textarea + shows a banner when a
+    // big text block is pasted, so the composer doesn't explode visually.
+    setupLargePasteNotice({
+      documentImpl: document,
+      textarea,
+      shell,
+    });
+
     const submission = setupChatSubmission({
       windowImpl: window,
       form,
@@ -200,6 +219,7 @@ export function runChatComposer({
       updateSendEnabled,
       FormDataImpl: FormData,
       CustomEventImpl: CustomEvent,
+      onSent: draft.clear,
     });
 
     setupAskQuestionHandlers({

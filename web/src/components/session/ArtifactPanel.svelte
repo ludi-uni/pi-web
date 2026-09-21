@@ -12,6 +12,7 @@
   import { t } from '../../shared/i18n.js';
   import { copyToClipboard } from '../../shared/clipboard.js';
   import { sessionRuntime } from '../../session/session-runtime.js';
+  import { gitFileUrl } from '../../session/result/result-api.js';
 
   // `highlight`/`renderMarkdown` are injectable for tests; in the live app the
   // component lazy-loads highlight.js itself and renders markdown via marked.
@@ -35,6 +36,9 @@
   // Preview is opt-in (click-to-run): never auto-execute artifact content.
   let previewing = $state(false);
   let loadedHljs = $state(null);
+  // Secure-file preview state (repo files opened via /api/git/file).
+  let filePreview = $state(null); // {state:'loading'|'text'|'secret'|'binary'|'gone'|'error', text}
+  let sessionId = $state('');
 
   // Collected artifacts from the shared model (live only; null standalone).
   // Recomputes when entries change (live reload) or the settings tick bumps.
@@ -159,6 +163,7 @@
     if (selectedId !== lastSelectedId) {
       lastSelectedId = selectedId;
       previewing = false;
+      filePreview = null; // drop the on-disk preview when switching artifacts
     }
   });
 
@@ -174,6 +179,63 @@
       countEl.hidden = c.visible.length === 0;
     }
   });
+
+  // Resolve the current session id once (for the secure file endpoint).
+  function resolveSessionId() {
+    if (sessionId) return sessionId;
+    try {
+      sessionId = new URLSearchParams(window.location.search).get('id') || '';
+    } catch {
+      sessionId = '';
+    }
+    return sessionId;
+  }
+
+  // Whether an artifact maps to a repo file we can open via the secure
+  // endpoint. Only file artifacts with a relative path qualify — absolute
+  // paths and snippets are excluded (the endpoint only serves repo-relative).
+  function isRepoFile(a) {
+    if (!a?.filePath) return false;
+    const p = a.filePath;
+    return !p.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(p) && !p.includes('..');
+  }
+
+  // Open the artifact's on-disk file through the secure endpoint. Text ≤256KiB
+  // renders inline (plain — highlighting is a nice-to-have, not required);
+  // secrets/binaries/missing files show a labelled placeholder instead.
+  async function openFilePreview(a) {
+    const id = resolveSessionId();
+    if (!id || !isRepoFile(a)) return;
+    filePreview = { state: 'loading' };
+    try {
+      const res = await fetch(gitFileUrl(id, a.filePath));
+      if (res.status === 404) {
+        filePreview = { state: 'gone' };
+        return;
+      }
+      if (!res.ok) {
+        filePreview = { state: 'error' };
+        return;
+      }
+      const ct = res.headers.get('Content-Type') || '';
+      const cd = res.headers.get('Content-Disposition') || '';
+      if (ct.startsWith('text/plain')) {
+        const text = await res.text();
+        filePreview = { state: 'text', text };
+      } else if (cd.includes('attachment')) {
+        // Served as attachment → secret or binary; not inline-previewable.
+        filePreview = { state: 'secret' };
+      } else {
+        filePreview = { state: 'binary' };
+      }
+    } catch {
+      filePreview = { state: 'error' };
+    }
+  }
+
+  function closeFilePreview() {
+    filePreview = null;
+  }
 
   onMount(() => {
     if (!highlight) {
@@ -231,6 +293,9 @@
             onclick={() => selectArtifact(a.id)}
           >
             <span class="artifact-item-title">{a.title}</span>
+            {#if a.changeKind}
+              <span class="artifact-change artifact-change--{a.changeKind}">{a.changeKind}</span>
+            {/if}
             {#if a.lang}<span class="artifact-item-lang">{a.lang}</span>{/if}
             {#if a.kind === 'preview'}<span class="artifact-badge">preview</span>{/if}
           </button>
@@ -250,6 +315,16 @@
                 class:active={previewing}
                 data-action="toggle-preview"
                 onclick={() => (previewing = !previewing)}>{previewLabel}</button
+              >
+            {/if}
+            {#if isRepoFile(selected)}
+              <button
+                type="button"
+                class="artifact-action"
+                class:active={!!filePreview}
+                data-action="open-file"
+                onclick={() => (filePreview ? closeFilePreview() : openFilePreview(selected))}
+                >{filePreview ? t('artifact.closeFile') : t('artifact.openFile')}</button
               >
             {/if}
             <button
@@ -287,6 +362,22 @@
               ></iframe>
             </div>
           {/if}
+        {:else if filePreview}
+          <!-- Secure on-disk preview via /api/git/file (replaces the
+               reconstructed source view while open). -->
+          <div class="artifact-view-body">
+            {#if filePreview.state === 'loading'}
+              <div class="artifact-file-note">{t('artifact.fileLoading')}</div>
+            {:else if filePreview.state === 'text'}
+              <pre class="artifact-source artifact-file-text">{filePreview.text}</pre>
+            {:else if filePreview.state === 'secret'}
+              <div class="artifact-file-note artifact-file-warn">{t('result.secretFile')}</div>
+            {:else if filePreview.state === 'gone'}
+              <div class="artifact-file-note">{t('result.fileGone')}</div>
+            {:else}
+              <div class="artifact-file-note">{t('artifact.fileUnavailable')}</div>
+            {/if}
+          </div>
         {:else}
           <div class="artifact-view-body">
             <pre class="artifact-source" id={`artifact-${selected.id}`}>{#if codeHtml !== null}<code

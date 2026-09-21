@@ -67,7 +67,8 @@ pi-web/
 │   │   ├── annotations.go      # Per-session review annotations: list/create/delete + SSE snapshot (SQLite)
 │   │   ├── projects.go         # Project visibility prefs: list/toggle/register + index filtering (SQLite)
 │   │   ├── sound.go            # /api/sounds + /sounds/ asset serving
-│   │   ├── push.go             # PushManager: VAPID, subscribe/unsubscribe, NotifyDone, NotifyScheduleDone
+│   │   ├── push.go             # PushManager: VAPID, subscribe/unsubscribe, NotifyDone, NotifyScheduleDone, NotifyAttention
+│   │   ├── attention.go        # Needs-attention model: waiting/failed/unread detection + /api/attention + /api/session/viewed
 │   │   ├── scheduler.go        # Cron tick loop + fireSchedule runner (creates a session, sends instructions)
 │   │   ├── schedules_api.go    # /api/schedules + /api/schedule(/run|/runs) handlers
 │   │   ├── update.go           # /api/version, check-update, update, restart handlers
@@ -253,6 +254,9 @@ type piRPCWorker struct {
 | `/login` | GET | `handleAppShell` | Render SPA shell for the login route |
 | `/api/session` | GET | `handleApiSession` | JSON session data |
 | `/api/sessions` | GET | `handleApiSessions` | JSON list of session summaries |
+| `/api/session/viewed` | POST | `handleSessionViewed` | Mark a session as viewed (clears completed-unread) |
+| `/api/session/last-viewed` | GET | `handleLastViewed` | Most recently viewed session (Continue last session) |
+| `/api/attention` | GET | `handleAttention` | Self-contained Inbox items (attention state + name/project/lastActivity/kind/running) + raw map + running ids |
 | `/api/chat` | POST | `handleChat` | Send chat message (multipart) |
 | `/api/chat/cancel` | POST | `handleCancelChat` | Abort running chat worker |
 | `/api/set-model` | POST | `handleSetModel` | Change model for session |
@@ -275,6 +279,13 @@ type piRPCWorker struct {
 | `/api/git/info` | GET | `handleGitInfo` | Branch / dirty / PR-URL info for a project |
 | `/api/git/rename-branch` | POST | `handleGitRenameBranch` | Rename the current git branch |
 | `/api/git/diff` | GET | `handleGitDiff` | Uncommitted working-tree diff (tracked + untracked) for the session cwd |
+| `/api/git/status` | GET | `handleGitStatus` | Result-Card summary: branch, clean, staged/unstaged/untracked counts, insertions/deletions |
+| `/api/git/files` | GET | `handleGitFiles` | Per-file working-tree list (status + line counts, capped; `?mode=working\|staged\|unstaged`) |
+| `/api/git/file-diff` | GET | `handleGitFileDiff` | Unified patch for one repo-relative path (validated inside the work tree; `?mode=`) |
+| `/api/git/file` | GET | `handleGitFile` | Preview/download a repo-relative file (traversal + symlink + size + secret-name guards) |
+| `/api/git/head` | GET | `handleGitHead` | HEAD sha + subject + upstream ahead/behind (local refs only) |
+| `/api/approval/decide` | POST | `handleApprovalDecision` | Forwards approve/reject to the worker's `approval_response` RPC |
+| `/api/approvals` | GET | `handleListApprovals` | Pending approvals for a session (seeds the page's approval store) |
 | `/api/diff/reviews` | GET/POST/DELETE | `handleReviewComments` | Per-session diff review comments for the diff modal (SQLite) |
 | `/api/scratchpad` | GET/POST | `handleGetScratchpad` / `handleSaveScratchpad` | Per-project scratchpad (SQLite) |
 | `/api/annotations` | GET/POST/DELETE | `handleAnnotations` | Per-session review annotations; mutations broadcast an `annotations` SSE snapshot (SQLite) |

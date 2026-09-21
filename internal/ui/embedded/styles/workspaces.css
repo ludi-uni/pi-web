@@ -427,6 +427,101 @@ a.workspace-card-name:focus-visible {
   cursor: default;
 }
 
+/* Path field + folder browser (Add workspace sheet). */
+.ws-path-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.ws-path-row input {
+  flex: 1;
+  min-width: 0;
+}
+.ws-browse-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ws-browser {
+  margin-top: 8px;
+  border: 1px solid color-mix(in srgb, var(--dim) 55%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 45%, transparent);
+  overflow: hidden;
+}
+.ws-browser-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dim) 40%, transparent);
+  font-size: 12px;
+}
+.ws-browser-up {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--dim) 70%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ws-browser-up:hover {
+  background: var(--hover, color-mix(in srgb, var(--accent) 14%, transparent));
+}
+.ws-browser-path {
+  font-family: var(--font-code, monospace);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ws-browser-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.ws-browser-dir {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.ws-browser-dir:hover {
+  background: var(--hover, color-mix(in srgb, var(--accent) 14%, transparent));
+}
+.ws-browser-dir bdi {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-browser .ws-muted,
+.ws-browser .ws-error {
+  padding: 10px;
+  margin: 0;
+}
+.ws-browser-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 7px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--dim) 40%, transparent);
+}
+
 /* Floating "+" action. Reuses the sessions-index .new-session-btn styling;
    hidden on desktop (header button is used there), shown on mobile. The base
    .new-session-btn-mobile positions it fixed — we only gate display. */
@@ -627,6 +722,51 @@ a.workspace-card-name:focus-visible {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Mobile sheet ordering: the Add-workspace modal is a flex column on small
+   screens (index.css @media <=700px) where children are positioned by `order`.
+   Give the new path row + browser explicit orders so they slot between the
+   suggestions and the name field instead of collapsing to the top. */
+@media (max-width: 700px) {
+  .modal .ws-suggestions {
+    order: 2;
+    flex-shrink: 0;
+    max-height: 30vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal .ws-field-label {
+    order: 1;
+    flex-shrink: 0;
+    margin-bottom: 0;
+  }
+  .modal .ws-path-row {
+    order: 1;
+    flex-shrink: 0;
+    margin-bottom: 10px;
+  }
+  .modal .ws-path-row input {
+    margin-bottom: 0; /* row provides the spacing, not the input */
+  }
+  .modal .ws-browser {
+    order: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+  }
+  .modal .ws-browser .ws-browser-list {
+    flex: 1 1 auto;
+    max-height: none;
+  }
+  .modal .ws-browser-actions .btn-secondary {
+    display: inline-flex; /* undo the global .modal-actions .btn-secondary hide */
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+  }
 }
 
 @media (max-width: 900px) {

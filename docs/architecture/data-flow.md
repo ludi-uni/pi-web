@@ -186,6 +186,120 @@ Editor saves session file
                 └──▶ append/upsert canonical entries and clear preview
 ```
 
+## Data Flow: Session Attention (Inbox + Push)
+
+The Inbox and push notifications share one server-side model in the
+`session_attention` SQLite table (`internal/server/attention.go`). It is driven
+by the running-state transition in `recomputeAndBroadcastStatus`:
+
+```
+Worker transitions running → idle
+           │
+           ▼
+    updateAttentionOnIdle(sessionID)
+           │
+           ├──▶ Resolve session, scanAttentionTail(entries)
+           │      ├── waiting: last ask_user_question toolResult has
+           │      │             details.awaitingChatReply=true and no user reply
+           │      └── failed:  last entry is an errored toolResult, or an
+           │                  assistant toolCall with no matching toolResult
+           │
+           ├──▶ Write waiting/failed/completed_at to session_attention
+           ├──▶ broadcast "attention" SSE on __all__ (open index pages refresh)
+           └──▶ push.NotifyAttention(sessionID, kind, title)  (dedupe: only on
+                                                           a flag change)
+
+User opens the session page
+           │
+           ▼
+    POST /api/session/viewed?id=...
+           └──▶ last_viewed_at = now  →  completed-unread clears
+```
+
+`GET /api/attention` returns a self-contained `items` list — each entry carries
+the attention state plus name/project/lastActivity/kind/running — so the Inbox
+renders needs-attention sessions without depending on the 100-item
+`/api/sessions` page window. The frontend (`web/src/index/attention.js`) groups
+items into buckets (waiting_input / approval_required / failed /
+completed_unread / running). `approval_required` is reserved — no approval flow
+exists yet.
+
+`GET /api/session/last-viewed` returns the most recently viewed session for the
+"Continue last session" link on the index.
+
+## Data Flow: Session Result Card
+
+The Result Card on the session page summarizes "what this session did" using
+structured signals only — never assistant prose:
+
+```
+<ResultCard> mounts
+   │
+   ├──▶ GET /api/git/status?id=<id>   → branch, clean, staged/unstaged/untracked, +/-
+   ├──▶ session entries               → bashExecution exitCode + toolResult isError
+   └──▶ collectArtifacts(entries)     → generated-file count
+           │
+           ▼
+   buildResult() → status success/partial/failed/unknown
+   (failed only when the LAST signal is a failure; recovered → partial)
+```
+
+"View changes" opens the existing DiffModal (`/api/git/diff`). "Changed files"
+lazy-loads `/api/git/files`, and tapping a row lazy-loads `/api/git/file-diff`
+for that single path — the full diff is never fetched up front. Both the modal
+and the per-file list accept `?mode=working|staged|unstaged` (a fixed enum —
+never a raw git arg). The card refetches on `pi-session-reload` and
+`pi-attention` (idle transition), not on a polling timer.
+
+The Tests/Build/Checks section and Execution drawer come from
+`command-result.js`: `bashExecution.exitCode`/`cancelled` and bash
+toolCall→toolResult (`isError` + the "Command exited with code N" suffix).
+Commands are classified by a limited rule table (test/build/lint/format/
+typecheck/git/other) — ambiguous commands are `other`, never AI-inferred. A
+failure followed by a later success is a "recovered error"; only a terminal
+failure marks the session failed.
+
+## Approval pipeline
+
+Pi's RPC worker emits `approval_*` stream events when the execution gate pauses
+a dangerous action. The full path is now live:
+
+```
+pi (execution gate) ── approval_required ──▶ piRPCWorker.handleRPCLine
+   │                                          (approval_* case)
+   ▼
+approvalSink ──▶ Server.IngestApprovalEvent
+   │  ├─ approvalStore.reduce (unique id, single decision, stale/expired safe)
+   │  ├─ markApprovalRequired → session_attention.approval → Inbox
+   │  ├─ push.NotifyAttention (title only, no command/secrets)
+   │  └─ broadcastApprovalEvent → `approval` SSE on the session topic
+   ▼
+SessionPage approval-store.js → pendingApprovals → ApprovalCard
+   │
+   ▼ Approve / Reject
+POST /api/approval/decide {approvalId, decision, sessionId}
+   │  ├─ approvals.decide (idempotent, stale/cross-session rejected)
+   │  └─ Manager.SendApprovalResponse → worker `approval_response` RPC
+   ▼
+pi resumes the held action (approve) or aborts it (reject/expire)
+   └── approval_resolved/rejected stream event → card removed via SSE
+```
+
+- Events: `approval_required` / `approval_resolved` / `approval_rejected` /
+  `approval_expired` (snake_case wire fields).
+- The decision endpoint trusts only `approvalId` + `decision` — the action
+  payload never crosses the client boundary, so only the exact held action can
+  resume.
+- `GET /api/approvals?id=` seeds the page's approval store on mount and on
+  `pi-session-reload`, closing the race where `approval_required` fired before
+  the SSE listener attached.
+- `internal/policy/approval_policy.go` classifies commands: a read-only
+  allowlist (git status/diff/log, go test/build, npm test/lint/build, etc.)
+  bypasses approval; mutations (git push/commit, rm/del, publish, deploy,
+  network, system changes) and any unrecognized command require it. Compound
+  commands (`&&`, `;`, `|`, `-c` wrappers) must be entirely read-only to
+  bypass — unknown mutation fails safe to approval.
+
 ## Data Flow: Share to Gist
 
 ```

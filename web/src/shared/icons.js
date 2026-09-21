@@ -9,6 +9,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  Bell,
   BookOpen,
   CalendarClock,
   ChartColumn,
@@ -16,6 +17,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   CircleHelp,
   Clock,
   Copy,
@@ -148,6 +150,7 @@ export function setThemeIconElement(el, theme, opts = {}) {
 export {
   ArrowDown,
   ArrowUp,
+  Bell,
   BookOpen,
   CalendarClock,
   ChartColumn,
@@ -155,6 +158,7 @@ export {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   CircleHelp,
   Clock,
   Copy,

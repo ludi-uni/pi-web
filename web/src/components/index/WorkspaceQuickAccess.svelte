@@ -1,16 +1,9 @@
 <script>
   import { icon, Folder, ChevronRight } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
-  import { navigate, handleNavClick } from '../../shared/navigation.js';
-  import { createSessionInWorkspace } from '../../index/workspaces.js';
+  import { handleNavClick } from '../../shared/navigation.js';
 
-  let {
-    workspaces = [],
-    createSession = createSessionInWorkspace,
-    onNewSession = () => {},
-  } = $props();
-
-  let creatingFor = $state('');
+  let { workspaces = [] } = $props();
 
   const sortedWorkspaces = $derived(
     [...workspaces].sort((a, b) => {
@@ -23,22 +16,8 @@
   );
   const hasWorkspaces = $derived(sortedWorkspaces.length > 0);
 
-  async function quickStart(workspace) {
-    if (creatingFor) return;
-    creatingFor = workspace.id;
-    try {
-      const model = workspace?.settings?.model || undefined;
-      const response = await createSession(workspace.path, { model });
-      if (response?.ok && response.id) {
-        navigate('/session?id=' + encodeURIComponent(response.id));
-        return;
-      }
-    } catch {
-      // Fall through to the generic new-session modal on failure.
-    } finally {
-      creatingFor = '';
-    }
-    onNewSession(workspace.path);
+  function openWorkspace(workspace, event) {
+    handleNavClick(event, `/workspace?id=${encodeURIComponent(workspace.id || '')}`);
   }
 </script>
 
@@ -64,8 +43,7 @@
           class="workspace-quick-chip"
           class:workspace-quick-chip--pinned={workspace.pinned}
           data-testid="workspace-quick-chip"
-          disabled={creatingFor === workspace.id}
-          onclick={() => quickStart(workspace)}
+          onclick={(e) => openWorkspace(workspace, e)}
         >
           <span class="workspace-quick-chip-icon" aria-hidden="true"
             >{@html icon(Folder, { size: 14 })}</span
@@ -73,9 +51,6 @@
           <span class="workspace-quick-chip-name">{workspace.name}</span>
           {#if workspace.sessionCount > 0}
             <span class="workspace-quick-chip-count">{workspace.sessionCount}</span>
-          {/if}
-          {#if creatingFor === workspace.id}
-            <span class="workspace-quick-chip-loading">{t('workspaces.creating')}</span>
           {/if}
         </button>
       {/each}

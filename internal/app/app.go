@@ -86,11 +86,18 @@ func Main(version string) {
 
 	var srv *server.Server
 	manager := workers.NewManager(func(sessionID, sessionPath string) (workers.ChatWorker, error) {
-		return rpc.NewPiWorkerWithStream(sessionPath, func(preview rpc.StreamPreview) {
-			if srv != nil {
-				srv.BroadcastChatPreview(sessionID, preview)
-			}
-		})
+		return rpc.NewPiWorkerWithStream(sessionPath,
+			func(preview rpc.StreamPreview) {
+				if srv != nil {
+					srv.BroadcastChatPreview(sessionID, preview)
+				}
+			},
+			func(raw json.RawMessage) {
+				if srv != nil {
+					srv.IngestApprovalEvent(raw, time.Now())
+				}
+			},
+		)
 	})
 	var srvErr error
 	srv, srvErr = server.New(server.Deps{

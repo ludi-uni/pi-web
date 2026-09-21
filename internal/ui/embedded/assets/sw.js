@@ -49,6 +49,7 @@ self.addEventListener('push', (event) => {
     // user is actively watching is suppressed when a foreground client exists —
     // the page handles that cue itself (including done.mp3).
     const isSchedule = data.type === 'schedule-done';
+    const isAttention = data.type === 'attention';
     if (!isSchedule) {
       const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       const hasForegroundClient = clientsList.some((client) => {
@@ -64,7 +65,14 @@ self.addEventListener('push', (event) => {
       body: data.body || 'Response ready',
       icon: '/icon.svg',
       badge: '/icon.svg',
-      tag: isSchedule ? `pi-schedule-${data.sessionId || ''}` : 'pi-session-done',
+      // Distinct tag per session+kind so a session that moves waiting→failed
+      // replaces its own banner instead of stacking, while two different
+      // sessions notify independently.
+      tag: isSchedule
+        ? `pi-schedule-${data.sessionId || ''}`
+        : isAttention
+          ? `pi-attn-${data.sessionId || ''}-${data.kind || 'done'}`
+          : 'pi-session-done',
       renotify: true,
       data: { sessionId: data.sessionId || '' },
       // Phones play their default notification sound when this fires.

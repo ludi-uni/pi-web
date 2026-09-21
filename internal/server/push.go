@@ -193,13 +193,35 @@ func (m *PushManager) handleUnsubscribe(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, 0, map[string]any{"ok": true})
 }
 
-// NotifyDone sends a "response ready" push for a finished session.
-func (m *PushManager) NotifyDone(sessionID string) {
+// NotifyAttention sends a push for a session that just entered a state needing
+// the user: waiting for input, failed, or finished. kind is one of
+// "waiting_input" / "failed" / "completed_unread" (see attention.go). The
+// caller is responsible for dedupe — this only fires on a state change.
+//
+// The payload stays minimal on purpose: a short title (session name or
+// project), a generic body, and the session id for notificationclick routing.
+// No prompt text or message bodies are ever included.
+func (m *PushManager) NotifyAttention(sessionID, kind, title string) {
+	if title == "" {
+		title = "pi session"
+	}
+	var body string
+	switch kind {
+	case "waiting_input":
+		body = "Input required"
+	case "approval_required":
+		body = "Approval required"
+	case "failed":
+		body = "Session ended with an error"
+	default:
+		body = "Response ready"
+	}
 	m.notify(map[string]string{
-		"type":      "session-done",
+		"type":      "attention",
+		"kind":      kind,
 		"sessionId": sessionID,
-		"title":     "pi session",
-		"body":      "Response ready",
+		"title":     title,
+		"body":      body,
 	})
 }
 

@@ -107,6 +107,11 @@ type Server struct {
 	// auto_title.go), grouped so each subsystem owns its own fields + lock.
 	metrics   metricsState
 	autoTitle autoTitleState
+
+	// approvals holds pending/decided approvals for the future approval flow
+	// (see approval.go). Nil until the first approval event arrives; the
+	// decision endpoint is a stub that executes nothing.
+	approvals *approvalStore
 }
 
 // metricsState backs the metrics dashboard. startedAt drives process uptime;
@@ -269,6 +274,7 @@ func initDB(agentDir string) (*sql.DB, error) {
 		{"chat_queue_items table", chatqueue.ItemsTableDDL},
 		{"chat_queue_items index", chatqueue.ItemsSessionIndexDDL},
 		{"chat_queue_state table", chatqueue.StateTableDDL},
+		{"session_attention table", attentionSchema},
 	}
 	for _, s := range schema {
 		if _, err := db.Exec(s.stmt); err != nil {
@@ -276,6 +282,9 @@ func initDB(agentDir string) (*sql.DB, error) {
 			return nil, fmt.Errorf("create %s: %w", s.name, err)
 		}
 	}
+	// Additive migrations for existing DBs (no IF NOT EXISTS on ADD COLUMN).
+	// Errors are ignored — a duplicate column just means it's already there.
+	_, _ = db.Exec(attentionApprovalColumn)
 	migrateLegacyBtwSession(db)
 	return db, nil
 }
@@ -333,6 +342,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/session", s.auth.Wrap(s.handleSession))
 	mux.HandleFunc("/settings", s.auth.Wrap(s.handleSettingsPage))
 	mux.HandleFunc("/api/session", s.auth.Wrap(s.handleApiSession))
+	mux.HandleFunc("/api/session/viewed", s.auth.Wrap(s.handleSessionViewed))
+	mux.HandleFunc("/api/session/last-viewed", s.auth.Wrap(s.handleLastViewed))
+	mux.HandleFunc("/api/attention", s.auth.Wrap(s.handleAttention))
 	mux.HandleFunc("/api/sessions", s.auth.Wrap(s.handleApiSessions))
 	mux.HandleFunc("/api/chat", s.auth.Wrap(s.handleChat))
 	mux.HandleFunc("/api/chat/cancel", s.auth.Wrap(s.handleCancelChat))
@@ -351,11 +363,19 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/recent-locations", s.auth.Wrap(s.handleRecentLocations))
 	mux.HandleFunc("/api/projects", s.getPostHandler(s.handleApiProjects, s.handleUpdateProject))
 	mux.HandleFunc("/api/workspaces", s.getPostHandler(s.handleApiWorkspaces, s.handleUpdateWorkspace))
+	mux.HandleFunc("/api/browse-dirs", s.auth.Wrap(s.handleApiBrowseDirs))
 	mux.HandleFunc("/api/files", s.auth.Wrap(s.handleApiFiles))
 	mux.HandleFunc("/api/git/info", s.auth.Wrap(s.handleGitInfo))
 	mux.HandleFunc("/api/git/rename-branch", s.auth.Wrap(s.handleGitRenameBranch))
 	mux.HandleFunc("/api/git/diff", s.auth.Wrap(s.handleGitDiff))
+	mux.HandleFunc("/api/git/status", s.auth.Wrap(s.handleGitStatus))
+	mux.HandleFunc("/api/git/head", s.auth.Wrap(s.handleGitHead))
+	mux.HandleFunc("/api/git/files", s.auth.Wrap(s.handleGitFiles))
+	mux.HandleFunc("/api/git/file-diff", s.auth.Wrap(s.handleGitFileDiff))
+	mux.HandleFunc("/api/git/file", s.auth.Wrap(s.handleGitFile))
 	mux.HandleFunc("/api/diff/reviews", s.auth.Wrap(s.handleReviewComments))
+	mux.HandleFunc("/api/approval/decide", s.auth.Wrap(s.handleApprovalDecision))
+	mux.HandleFunc("/api/approvals", s.auth.Wrap(s.handleListApprovals))
 	// Public (no auth): the login gate needs the custom palette to theme
 	// correctly before the user authenticates. Contents are non-secret color
 	// variables only.

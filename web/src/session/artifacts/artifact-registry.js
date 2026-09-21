@@ -105,6 +105,11 @@ function makeFileArtifact(id, path, content, entry) {
     entryId: entry.id,
     anchorId: `entry-${entry.id}`,
     source: 'write',
+    // generated | modified | deleted — derived from the tool history. A first
+    // `write` marks the file generated; a later `edit`/`write` marks modified;
+    // a successful `rm` marks deleted (the artifact is then filtered out, but
+    // the flag is set for callers that inspect before filtering).
+    changeKind: 'generated',
   };
 }
 
@@ -202,6 +207,7 @@ function applyBashOps(command, byPath) {
       const art = byPath.get(op.path);
       if (art) {
         art._removed = true;
+        art.changeKind = 'deleted';
         byPath.delete(op.path);
       }
     } else if (op.op === 'mv' && op.from !== op.to) {
@@ -243,6 +249,7 @@ function applyFileToolCall(call, entry, order, byPath, results) {
     const existing = byPath.get(path);
     if (existing) {
       existing.content = content;
+      existing.changeKind = 'modified';
       existing.entryId = entry.id;
       existing.anchorId = `entry-${entry.id}`;
     } else {
@@ -256,6 +263,7 @@ function applyFileToolCall(call, entry, order, byPath, results) {
     const art = byPath.get(path);
     if (!art) return; // no in-session baseline content — can't reconstruct, skip
     art.content = applyEdits(art.content, args.edits);
+    art.changeKind = 'modified';
     art.entryId = entry.id;
     art.anchorId = `entry-${entry.id}`;
   } else if (call.name === 'bash') {

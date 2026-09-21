@@ -89,13 +89,180 @@ function writeTurn(userText, reply) {
   appendEntry(messageEntry("assistant", reply, user.id).entry);
 }
 
+// A "[[ask:...]]" marker makes the stub write an ask_user_question tool call +
+// a toolResult with details.awaitingChatReply=true (the real tool's marker for
+// "pi is waiting for the user's answer") instead of a plain text reply. This
+// drives the server's waiting_input attention detection end-to-end.
+function parseAsk(raw) {
+  const m = /\s*\[\[ask:(.+?)\]\]\s*/.exec(raw);
+  if (!m) return null;
+  return { text: (raw.slice(0, m.index) + raw.slice(m.index + m[0].length)).trim(), question: m[1] };
+}
+
+function writeAskTurn(userText, question) {
+  if (!sessionPath) return;
+  const user = messageEntry("user", userText, lastEntryId());
+  appendEntry(user.entry);
+  const callId = nextId();
+  const call = {
+    id: nextId(),
+    entry: {
+      type: "message",
+      id: callId,
+      parentId: user.id,
+      timestamp: new Date().toISOString(),
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "toolCall",
+            id: callId,
+            name: "pi_web_ask_user_question",
+            arguments: { questions: [{ question, options: ["yes", "no"] }] },
+          },
+        ],
+        timestamp: Date.now(),
+      },
+    },
+  };
+  appendEntry(call.entry);
+  const result = {
+    id: nextId(),
+    entry: {
+      type: "message",
+      id: nextId(),
+      parentId: callId,
+      timestamp: new Date().toISOString(),
+      message: {
+        role: "toolResult",
+        toolCallId: callId,
+        toolName: "pi_web_ask_user_question",
+        content: [{ type: "text", text: "Presented 1 question to the user." }],
+        details: { awaitingChatReply: true, questionCount: 1 },
+        isError: false,
+        timestamp: Date.now(),
+      },
+    },
+  };
+  appendEntry(result.entry);
+}
+
+let pendingApproval = null; // {approvalId, command, kind, resolveTimer}
+
+// A "[[gate:<kind>:<command>]]" marker in a prompt makes the stub emit an
+// approval_required event and hold the (fake) action until an
+// approval_response command arrives — mirroring the real execution gate.
+//   [[gate:git_push:git push origin main]]
+function parseGate(raw) {
+  const m = /\s*\[\[gate:([a-z_]+):(.+?)\]\]\s*/.exec(raw);
+  if (!m) return null;
+  return {
+    text: (raw.slice(0, m.index) + raw.slice(m.index + m[0].length)).trim(),
+    kind: m[1],
+    command: m[2],
+  };
+}
+
+function emitApprovalRequired(kind, command) {
+  const approvalId = nextId();
+  const created = Date.now();
+  pendingApproval = { approvalId, kind, command, created };
+  send({
+    type: "approval_required",
+    approval_id: approvalId,
+    session_id: sessionPath ? sessionPath.split(/[\\/]/).pop() : "",
+    action_kind: kind,
+    title: `Approval required: ${kind}`,
+    description: `Pi wants to run: ${command}`,
+    command,
+    created_at: created,
+    expires_at: created + 10 * 60 * 1000,
+  });
+  return pendingApproval;
+}
+
+// Called when an approval_response command arrives. Resumes on approve,
+// reports rejected on reject — exactly once per approval id.
+function handleApprovalResponse(cmd) {
+  const id = cmd.approval_id;
+  const decision = cmd.decision;
+  if (!pendingApproval || pendingApproval.approvalId !== id) {
+    respond(cmd.id, "approval_response", { accepted: false, state: "stale", executed: false, reason: "no such pending approval" });
+    return;
+  }
+  const held = pendingApproval;
+  pendingApproval = null;
+  const sid = sessionPath ? sessionPath.split(/[\\/]/).pop() : "";
+  if (decision === "approve") {
+    // Resume the held action: write the command's toolResult as if it ran.
+    writeApprovalResult(held, true);
+    respond(cmd.id, "approval_response", { accepted: true, state: "approved", executed: true, reason: null });
+    send({ type: "approval_resolved", approval_id: id, session_id: sid, decision: "approved" });
+    send({ type: "agent_end" });
+  } else {
+    writeApprovalResult(held, false);
+    respond(cmd.id, "approval_response", { accepted: true, state: "rejected", executed: false, reason: null });
+    send({ type: "approval_rejected", approval_id: id, session_id: sid, decision: "rejected" });
+    send({ type: "agent_end" });
+  }
+}
+
+// Write the assistant toolCall + toolResult for a gated action. On approve the
+// result is a success; on reject it's a structured rejection (not a crash).
+function writeApprovalResult(held, approved) {
+  if (!sessionPath) return;
+  const callId = nextId();
+  appendEntry({
+    type: "message",
+    id: callId,
+    parentId: lastEntryId(),
+    timestamp: new Date().toISOString(),
+    message: {
+      role: "assistant",
+      content: [{ type: "toolCall", id: callId, name: "bash", arguments: { command: held.command } }],
+      timestamp: Date.now(),
+    },
+  });
+  appendEntry({
+    type: "message",
+    id: nextId(),
+    parentId: callId,
+    timestamp: new Date().toISOString(),
+    message: {
+      role: "toolResult",
+      toolCallId: callId,
+      toolName: "bash",
+      content: [{ type: "text", text: approved ? `(stub) ran: ${held.command}` : `Approval rejected: ${held.command}` }],
+      details: { approval: { required: true, approval_id: held.approvalId, decision: approved ? "approved" : "rejected" } },
+      isError: !approved,
+      timestamp: Date.now(),
+    },
+  });
+}
+
 function handlePrompt(cmd) {
   // Ack the prompt command first so POST /api/chat returns promptly.
   respond(cmd.id, "prompt", {});
 
   const raw = typeof cmd.message === "string" ? cmd.message : JSON.stringify(cmd.message ?? "");
   const { text: userText, delay } = parseDelay(raw);
+  const ask = parseAsk(raw);
+  const gate = parseGate(raw);
   const reply = `Stub reply: ${userText}`;
+
+  if (gate) {
+    // Emit approval_required and hold the action — the turn does NOT complete
+    // until an approval_response arrives (or the test times out).
+    appendEntry({
+      type: "message",
+      id: nextId(),
+      parentId: lastEntryId(),
+      timestamp: new Date().toISOString(),
+      message: { role: "user", content: [{ type: "text", text: userText }], timestamp: Date.now() },
+    });
+    emitApprovalRequired(gate.kind, gate.command);
+    return;
+  }
 
   // A prompt that lands while a slow run is in flight is a steer: real pi folds
   // it into the active turn rather than starting a new one, so write the turn
@@ -121,7 +288,11 @@ function handlePrompt(cmd) {
 
   // Mimic real pi taking ownership of the session file.
   setTimeout(() => {
-    writeTurn(userText, reply);
+    if (ask) {
+      writeAskTurn(userText, ask.question);
+    } else {
+      writeTurn(userText, reply);
+    }
     // Best-effort stream signals; shape mismatch is harmless to the worker.
     send({ type: "message_update", assistantMessageEvent: { type: "text_delta", text: reply } });
     send({ type: "message_end" });
@@ -164,6 +335,9 @@ function handle(cmd) {
           { id: "gpt-5-5-low", name: "GPT-5.5 Low Thinking", provider: "devin" },
         ],
       });
+      break;
+    case "approval_response":
+      handleApprovalResponse(cmd);
       break;
     case "prompt":
       handlePrompt(cmd);

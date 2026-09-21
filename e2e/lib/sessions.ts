@@ -1,4 +1,5 @@
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestInfo } from "@playwright/test";
@@ -10,6 +11,35 @@ import type { TestInfo } from "@playwright/test";
  */
 export function realWorkingDir(): string {
   return mkdtempSync(join(tmpdir(), "pi-web-e2e-cwd-"));
+}
+
+/**
+ * A real git repository to use as a session cwd, so the Result Card's
+ * /api/git/* endpoints return real data. Seeds one commit, one modified
+ * tracked file, one staged file and one untracked file. Returns "" when git
+ * is unavailable so specs can skip.
+ */
+export function realGitWorkingDir(): string {
+  const dir = realWorkingDir();
+  try {
+    const run = (args: string[]) =>
+      execFileSync("git", args, { cwd: dir, stdio: "ignore" });
+    run(["init", "-q"]);
+    run(["config", "user.email", "e2e@example.com"]);
+    run(["config", "user.name", "e2e"]);
+    writeFileSync(join(dir, "tracked.txt"), "line1\nline2\n");
+    writeFileSync(join(dir, "staged.txt"), "a\n");
+    run(["add", "."]);
+    run(["commit", "-qm", "init"]);
+    // Unstaged modification + a new staged file + an untracked file.
+    writeFileSync(join(dir, "tracked.txt"), "line1\nCHANGED\nline3\n");
+    writeFileSync(join(dir, "staged.txt"), "a\nb\n");
+    run(["add", "staged.txt"]);
+    writeFileSync(join(dir, "untracked.txt"), "fresh\n");
+    return dir;
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -76,6 +106,21 @@ export function buildSession(opts: MinimalEntryOpts = {}) {
     },
   ];
   return { entries, lastId: aId };
+}
+
+/** Build a bashExecution message entry (composer-run command with exit code). */
+export function bashExecutionEntry(parentId: string, command: string, exitCode: number | null, output = "") {
+  const id = nextId();
+  return {
+    id,
+    entry: {
+      type: "message",
+      id,
+      parentId,
+      timestamp: new Date().toISOString(),
+      message: { role: "bashExecution", command, exitCode, output, timestamp: Date.now() },
+    },
+  };
 }
 
 /** Build an assistant text message entry chained onto parentId. */

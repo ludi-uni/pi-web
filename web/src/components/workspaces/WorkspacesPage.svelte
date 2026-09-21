@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import WorkspaceCard from './WorkspaceCard.svelte';
-  import { icon, Plus } from '../../shared/icons.js';
+  import { icon, Folder, FolderOpen, Plus } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { navigate } from '../../shared/navigation.js';
   import {
@@ -15,6 +15,7 @@
     touchWorkspace,
     createSessionInWorkspace,
     getWorkspaceGitInfo,
+    browseDirs as apiBrowseDirs,
   } from '../../index/workspaces.js';
   import { defaultFetchRecent, defaultFetchProjects } from '../../index/sessions.js';
 
@@ -23,6 +24,7 @@
     fetchRecent = defaultFetchRecent,
     fetchProjects = defaultFetchProjects,
     createSession = createSessionInWorkspace,
+    fetchDirs = apiBrowseDirs,
   } = $props();
 
   let workspaces = $state([]);
@@ -82,6 +84,54 @@
   let addName = $state('');
   let addError = $state('');
   let suggestions = $state([]);
+
+  // Folder browser state. `browsePath` is the directory currently being
+  // listed; `browseDirs` are its immediate subdirectories. Empty browsePath
+  // means the platform root (drive list on Windows, home elsewhere).
+  let browseOpen = $state(false);
+  let browsePath = $state('');
+  let browseParent = $state('');
+  let browseEntries = $state([]);
+  let browseLoading = $state(false);
+  let browseError = $state('');
+
+  async function loadDirs(path) {
+    browseLoading = true;
+    browseError = '';
+    try {
+      const res = await fetchDirs(path || '');
+      browsePath = res.path || '';
+      browseParent = res.parent || '';
+      browseEntries = Array.isArray(res.dirs) ? res.dirs : [];
+    } catch (err) {
+      browseError = err?.message || t('workspaces.browseFailed');
+    } finally {
+      browseLoading = false;
+    }
+  }
+
+  function openBrowser() {
+    browseOpen = true;
+    // Seed the browser at the typed path when it is non-empty — handy when the
+    // user already pasted a parent directory.
+    loadDirs(addPath.trim());
+  }
+
+  function joinBrowsePath(dir) {
+    if (!browsePath) return dir; // drive roots arrive already qualified
+    const sep = browsePath.includes('\\') || /^[A-Za-z]:/.test(browsePath) ? '\\' : '/';
+    const base = browsePath.endsWith(sep) ? browsePath : browsePath + sep;
+    return base + dir;
+  }
+
+  function pickBrowseDir(dir) {
+    loadDirs(joinBrowsePath(dir));
+  }
+
+  function selectBrowseDir() {
+    if (browsePath) addPath = browsePath;
+    browseOpen = false;
+  }
 
   async function refresh() {
     try {
@@ -146,6 +196,7 @@
 
   function closeAdd() {
     addOpen = false;
+    browseOpen = false;
     document.body?.classList.remove('modal-sheet-open');
   }
 
@@ -350,18 +401,78 @@
       {/if}
 
       <label class="ws-field-label" for="workspacePath">{t('workspaces.pathLabel')}</label>
-      <input
-        type="text"
-        id="workspacePath"
-        placeholder={t('index.sessionPathPlaceholder')}
-        bind:value={addPath}
-        onkeydown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            submitAdd();
-          }
-        }}
-      />
+      <div class="ws-path-row">
+        <input
+          type="text"
+          id="workspacePath"
+          placeholder={t('index.sessionPathPlaceholder')}
+          bind:value={addPath}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submitAdd();
+            }
+          }}
+        />
+        <button
+          type="button"
+          class="btn-secondary ws-browse-btn"
+          data-testid="workspace-browse"
+          onclick={openBrowser}
+        >
+          <span class="ws-btn-ico" aria-hidden="true">{@html icon(FolderOpen, { size: 14 })}</span>
+          <span>{t('workspaces.browse')}</span>
+        </button>
+      </div>
+      {#if browseOpen}
+        <div class="ws-browser" data-testid="workspace-browser">
+          <div class="ws-browser-head">
+            {#if browsePath}
+              <button
+                type="button"
+                class="ws-browser-up"
+                data-testid="workspace-browse-up"
+                onclick={() => loadDirs(browseParent)}
+                disabled={browseLoading}
+              >
+                {t('workspaces.browseUp')}
+              </button>
+            {/if}
+            <span class="ws-browser-path"
+              ><bdi>{browsePath || t('workspaces.browseRoot')}</bdi></span
+            >
+          </div>
+          {#if browseError}
+            <p class="ws-error" role="alert">{browseError}</p>
+          {:else if browseLoading}
+            <p class="ws-muted">{t('workspaces.browseLoading')}</p>
+          {:else if browseEntries.length === 0}
+            <p class="ws-muted">{t('workspaces.browseEmpty')}</p>
+          {:else}
+            <ul class="ws-browser-list">
+              {#each browseEntries as dir (dir)}
+                <li>
+                  <button type="button" class="ws-browser-dir" onclick={() => pickBrowseDir(dir)}>
+                    <span class="ws-btn-ico" aria-hidden="true"
+                      >{@html icon(Folder, { size: 14 })}</span
+                    >
+                    <bdi>{dir}</bdi>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+          <div class="ws-browser-actions">
+            <button
+              type="button"
+              class="btn-secondary"
+              data-testid="workspace-browse-select"
+              disabled={!browsePath}
+              onclick={selectBrowseDir}>{t('workspaces.browseSelect')}</button
+            >
+          </div>
+        </div>
+      {/if}
       <label class="ws-field-label" for="workspaceName">{t('workspaces.nameLabel')}</label>
       <input
         type="text"
@@ -377,9 +488,7 @@
       />
       <div class="modal-error" role="alert">{addError}</div>
       <div class="modal-actions">
-        <button class="btn-secondary" type="button" onclick={closeAdd}
-          >{t('common.cancel')}</button
-        >
+        <button class="btn-secondary" type="button" onclick={closeAdd}>{t('common.cancel')}</button>
         <button
           class="btn-primary"
           type="button"

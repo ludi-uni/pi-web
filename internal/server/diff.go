@@ -58,13 +58,18 @@ func (s *Server) handleGitDiff(w http.ResponseWriter, r *http.Request) {
 	if resolveOrWriteError(w, err) {
 		return
 	}
-	diff, err := git.WorkingTreeDiff(cwd)
+	mode, err := git.ParseDiffMode(r.URL.Query().Get("mode"))
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	diff, err := git.WorkingTreeDiffMode(cwd, mode)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"isRepo": false, "diff": ""})
 		return
 	}
 	branch, _ := git.CurrentBranch(cwd)
-	writeJSON(w, http.StatusOK, map[string]any{"isRepo": true, "diff": diff, "branch": branch})
+	writeJSON(w, http.StatusOK, map[string]any{"isRepo": true, "diff": diff, "branch": branch, "mode": string(mode)})
 }
 
 func (s *Server) listReviewComments(sessionID string) ([]reviewComment, error) {

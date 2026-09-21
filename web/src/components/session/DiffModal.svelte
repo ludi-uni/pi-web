@@ -27,6 +27,8 @@
   let errorMsg = $state('');
   let emptyState = $state(''); // '', 'empty', 'notrepo'
   let layout = $state('split');
+  // working / staged / unstaged diff-mode. Switching re-fetches + re-renders.
+  let diffMode = $state('working');
   let commentCount = $state(0);
   // Per-file collapse state. The Set holds collapsed file names; the count
   // mirrors its size as $state so the "Collapse all" toggle label is reactive
@@ -126,7 +128,7 @@
       // not block the diff.
       const [mod, diffRes] = await Promise.all([
         withStage('renderer', import('@pierre/diffs'), 30000),
-        withStage('diff', getDiff(sessionId), 25000),
+        withStage('diff', getDiff(sessionId, { mode: diffMode }), 25000),
       ]);
       diffsMod = mod;
       comments = await withStage('reviews', getReviewComments(sessionId), 15000)
@@ -336,6 +338,22 @@
     if (next === layout) return;
     layout = next;
     applyOptions({ diffStyle: next });
+  }
+
+  // Switch the diff comparison and reload. Tears down the current CodeView and
+  // re-runs init() so the new mode's patch is parsed fresh (comments keyed by
+  // file name re-attach to the same paths).
+  async function setDiffMode(next) {
+    if (next === diffMode) return;
+    diffMode = next;
+    try {
+      codeView?.cleanUp();
+    } catch {
+      /* ignore */
+    }
+    codeView = null;
+    fileDiffs = null;
+    await init();
   }
 
   async function persistComment(payload, fileName) {
@@ -631,6 +649,17 @@
           class:active={layout === 'unified'}
           onclick={() => setLayout('unified')}>{t('diff.unified')}</button
         >
+      </div>
+      <div class="diff-toggle" role="group" aria-label={t('result.diff')}>
+        {#each ['working', 'staged', 'unstaged'] as m (m)}
+          <button
+            type="button"
+            class="diff-toggle-btn"
+            class:active={diffMode === m}
+            data-mode={m}
+            onclick={() => setDiffMode(m)}>{t(`result.${m}`)}</button
+          >
+        {/each}
       </div>
       <button
         type="button"

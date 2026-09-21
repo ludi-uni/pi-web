@@ -102,6 +102,7 @@ func TestPWAManifestInstallability(t *testing.T) {
 	var m struct {
 		Name      string `json:"name"`
 		ShortName string `json:"short_name"`
+		ID        string `json:"id"`
 		StartURL  string `json:"start_url"`
 		Scope     string `json:"scope"`
 		Display   string `json:"display"`
@@ -115,8 +116,14 @@ func TestPWAManifestInstallability(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&m); err != nil {
 		t.Fatalf("manifest JSON: %v", err)
 	}
-	if m.Name == "" || m.ShortName == "" {
-		t.Fatal("manifest missing name/short_name")
+	if m.Name != "Pi Web" {
+		t.Fatalf("name = %q, want Pi Web", m.Name)
+	}
+	if m.ShortName == "" {
+		t.Fatal("manifest missing short_name")
+	}
+	if m.ID != "/" {
+		t.Fatalf("id = %q, want /", m.ID)
 	}
 	if m.StartURL != "/" {
 		t.Fatalf("start_url = %q, want /", m.StartURL)

@@ -33,6 +33,9 @@
   } = $props();
 
   let messageTextarea = $state(null);
+  // Live entries for prompt history — read from the shared session model so
+  // the popover reflects newly-sent prompts without a refetch.
+  const sessionEntries = $derived(getSessionRuntime().model?.entries || []);
 
   // Reactive toolbar state owned here so the live runtime can mutate it while
   // <ChatToolbar> renders from it.
@@ -131,7 +134,7 @@
     ></textarea>
     <div id="pi-chat-attachments" class="pi-chat-attachments"></div>
     <ChatSelectorPopups />
-    <ChatToolbar {chatAvailable} {toolbar} {modelLabel} />
+    <ChatToolbar {chatAvailable} {toolbar} {modelLabel} historyEntries={sessionEntries} historyTextarea={messageTextarea} />
     <ContextUsage popover />
   </div>
   <TextAttachmentModal />

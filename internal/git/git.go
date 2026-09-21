@@ -187,6 +187,40 @@ func WorkingTreeDiff(dir string) (string, error) {
 	return b.String(), nil
 }
 
+// WorkingTreeDiffMode returns the full patch under a diff mode. Working uses
+// the existing WorkingTreeDiff (HEAD vs tree + untracked). Staged uses
+// `git diff --cached`, unstaged uses `git diff` (index vs tree) plus untracked
+// synthesis so new files still appear. Returns ErrNotRepo for a non-repo dir.
+func WorkingTreeDiffMode(dir string, mode DiffMode) (string, error) {
+	if mode == DiffWorking {
+		return WorkingTreeDiff(dir)
+	}
+	if dir == "" {
+		return "", ErrNotRepo
+	}
+	if _, err := run(dir, "rev-parse", "--is-inside-work-tree"); err != nil {
+		return "", ErrNotRepo
+	}
+	var b strings.Builder
+	args := append([]string{"-c", "core.quotepath=false"}, mode.diffArgs()...)
+	if tracked, err := diffRun(dir, args...); err == nil {
+		b.WriteString(tracked)
+	}
+	// Untracked files are never in the index, so staged mode shows none; in
+	// unstaged mode they appear as synthesized new-file patches.
+	if mode == DiffUnstaged && b.Len() < maxDiffBytes {
+		if others, err := run(dir, "ls-files", "--others", "--exclude-standard", "-z"); err == nil {
+			for _, f := range strings.Split(others, "\x00") {
+				if f == "" || b.Len() >= maxDiffBytes {
+					break
+				}
+				appendUntrackedPatch(&b, dir, f)
+			}
+		}
+	}
+	return b.String(), nil
+}
+
 // appendUntrackedPatch writes a synthetic "new file" patch for an untracked
 // file. Directories, symlinks, and unreadable entries are skipped.
 func appendUntrackedPatch(b *strings.Builder, dir, rel string) {
@@ -204,7 +238,7 @@ func appendUntrackedPatch(b *strings.Builder, dir, rel string) {
 	if err != nil {
 		return
 	}
-	if isBinary(data) {
+	if IsBinaryData(data) {
 		fmt.Fprintf(b, "Binary files /dev/null and b/%s differ\n", rel)
 		return
 	}
@@ -226,9 +260,9 @@ func appendUntrackedPatch(b *strings.Builder, dir, rel string) {
 	}
 }
 
-// isBinary reports whether data looks binary (contains a NUL byte in its head),
-// matching git's own heuristic closely enough for display purposes.
-func isBinary(data []byte) bool {
+// IsBinaryData reports whether data looks binary (contains a NUL byte in its
+// head), matching git's own heuristic closely enough for display purposes.
+func IsBinaryData(data []byte) bool {
 	head := data
 	if len(head) > 8000 {
 		head = head[:8000]

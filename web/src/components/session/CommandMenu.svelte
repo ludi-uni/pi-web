@@ -22,6 +22,7 @@
     CalendarClock,
     Settings,
     Tag,
+    Link2,
   } from '../../shared/icons.js';
   import * as sidebarApi from '../../session/ui/sidebar.js';
   import { openVersionModal } from '../../shared/version.js';
@@ -29,6 +30,7 @@
   import { openSessionPalette } from '../../shared/command-palette-runtime.js';
   import { openModelUsage, openFork, openDiff } from '../../session/session-modals.svelte.js';
   import { showToast } from '../../shared/toast.js';
+  import { copyToClipboard } from '../../shared/clipboard.js';
   import { sessionTitle, setSessionTitle } from '../../session/session-title.svelte.js';
   import { USER_DOCS_URL, TELEGRAM_INVITE_URL } from '../../shared/links.js';
   import {
@@ -51,6 +53,7 @@
     { action: 'list-sessions', icon: Search, label: 'menu.searchSessions', kbd: '⌘K' },
     { action: 'rename', icon: Pencil, label: 'menu.rename' },
     { action: 'share', icon: Share2, label: 'menu.share' },
+  { action: 'copy-link', icon: Link2, label: 'share.sessionLink' },
     { action: 'fork', icon: GitFork, label: 'menu.fork' },
     { action: 'clone', icon: Copy, label: 'menu.clone' },
     { action: 'terminal', icon: Terminal, label: 'menu.resumeTerminal' },
@@ -146,6 +149,22 @@
           clickHidden('share-btn');
           closeMenu();
           break;
+        case 'copy-link': {
+          closeMenu();
+          const url = window.location.origin + '/session?id=' + encodeURIComponent(sessionId);
+          // Prefer the system share sheet (mobile PC-handoff); fall back to a
+          // clipboard copy when navigator.share is unavailable or cancelled.
+          if (typeof navigator.share === 'function') {
+            navigator
+              .share({ title: sessionTitle.name || 'Session', url })
+              .catch(() => {});
+          } else {
+            copyToClipboard(url).then((ok) => {
+              if (ok) toast(t('common.copied'));
+            });
+          }
+          break;
+        }
         case 'list-sessions':
           closeMenu();
           openSessionPalette();

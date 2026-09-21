@@ -38,6 +38,9 @@ type piRPCWorker struct {
 	lastStreamActivity   atomic.Int64 // unix nanos; stream/turn events keep worker visually running
 	streamSink           StreamEventSink
 	streamPreview        *streamPreviewAccumulator
+	// approvalSink receives raw approval_* event payloads (the full JSON line)
+	// so the server can reduce them into the attention/Inbox pipeline. Nil-safe.
+	approvalSink func(raw json.RawMessage)
 }
 
 func (w *piRPCWorker) touch() {
@@ -107,7 +110,9 @@ func sessionHeaderCWD(sessionPath string) string {
 	return strings.TrimSpace(hdr.CWD)
 }
 
-func NewPiWorkerWithStream(sessionPath string, streamSink StreamEventSink) (workers.ChatWorker, error) {
+// NewPiWorkerWithStream starts a pi RPC worker. streamSink gets chat text
+// previews; approvalSink (optional) gets raw approval_* event lines.
+func NewPiWorkerWithStream(sessionPath string, streamSink StreamEventSink, approvalSink ...func(json.RawMessage)) (workers.ChatWorker, error) {
 	if _, err := exec.LookPath("pi"); err != nil {
 		return nil, fmt.Errorf("pi executable not found: %w", err)
 	}
@@ -133,6 +138,9 @@ func NewPiWorkerWithStream(sessionPath string, streamSink StreamEventSink) (work
 		stderrBuf:     &stderrBuf,
 		streamSink:    streamSink,
 		streamPreview: &streamPreviewAccumulator{},
+	}
+	if len(approvalSink) > 0 {
+		worker.approvalSink = approvalSink[0]
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -233,6 +241,44 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 func (w *piRPCWorker) SetThinkingLevel(ctx context.Context, level string) error {
 	w.touch()
 	return w.sendAndAwait(ctx, BuildSetThinkingLevelCommand(w.nextID(), level))
+}
+
+// SendApprovalResponse forwards an operator decision for a pending approval
+// to pi via the approval_response RPC. Only the approval id + decision cross
+// the wire — the action payload lives in pi's pending store, so a client can
+// never inject a different action. Returns the RPC result payload.
+func (w *piRPCWorker) SendApprovalResponse(ctx context.Context, approvalID, decision string) (json.RawMessage, error) {
+	w.touch()
+	if decision != "approve" && decision != "reject" {
+		return nil, errors.New("decision must be approve or reject")
+	}
+	id := w.nextID()
+	ch := make(chan response, 1)
+	w.mu.Lock()
+	w.pending[id] = ch
+	w.mu.Unlock()
+
+	w.writeMu.Lock()
+	err := WriteCommand(w.stdin, BuildApprovalResponseCommand(id, approvalID, decision))
+	w.writeMu.Unlock()
+	if err != nil {
+		w.removePending(id)
+		return nil, err
+	}
+
+	select {
+	case res := <-ch:
+		if !res.Success {
+			if res.Error != "" {
+				return nil, errors.New(res.Error)
+			}
+			return nil, errors.New("rpc approval_response rejected")
+		}
+		return res.Data, nil
+	case <-ctx.Done():
+		w.removePending(id)
+		return nil, ctx.Err()
+	}
 }
 
 func (w *piRPCWorker) Abort(ctx context.Context) error {
@@ -485,6 +531,12 @@ func (w *piRPCWorker) handleRPCLine(line string) {
 			w.mu.Lock()
 			w.currentThinkingLevel = meta.Level
 			w.mu.Unlock()
+		}
+	case "approval_required", "approval_resolved", "approval_rejected", "approval_expired":
+		// Forward the raw event line to the server's approval pipeline. The
+		// payload is opaque to the worker — the server owns validation/reduction.
+		if w.approvalSink != nil {
+			w.approvalSink(json.RawMessage(line))
 		}
 	}
 }

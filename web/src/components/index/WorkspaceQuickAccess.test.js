@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import WorkspaceQuickAccess from './WorkspaceQuickAccess.svelte';
 
@@ -55,23 +55,11 @@ describe('WorkspaceQuickAccess', () => {
     expect(link.closest('a').getAttribute('href')).toBe('/workspaces');
   });
 
-  it('creates a session when a workspace chip is clicked', async () => {
-    const onNewSession = vi.fn();
-    const createSession = vi.fn().mockResolvedValue({ ok: true, id: 'new.jsonl' });
+  it('navigates to the workspace detail page when a chip is clicked', async () => {
     render(WorkspaceQuickAccess, {
-      props: { workspaces: [workspace()], createSession, onNewSession },
+      props: { workspaces: [workspace()] },
     });
     await fireEvent.click(screen.getByTestId('workspace-quick-chip'));
-    expect(createSession).toHaveBeenCalledWith('D:\\Develop\\pi-web', { model: undefined });
-  });
-
-  it('falls back to the new-session modal when creation fails', async () => {
-    const onNewSession = vi.fn();
-    const createSession = vi.fn().mockRejectedValue(new Error('network'));
-    render(WorkspaceQuickAccess, {
-      props: { workspaces: [workspace()], createSession, onNewSession },
-    });
-    await fireEvent.click(screen.getByTestId('workspace-quick-chip'));
-    expect(onNewSession).toHaveBeenCalledWith('D:\\Develop\\pi-web');
+    expect(window.location.pathname + window.location.search).toBe('/workspace?id=w1');
   });
 });

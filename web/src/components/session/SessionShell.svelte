@@ -15,6 +15,14 @@
   import BtwPopup from './BtwPopup.svelte';
   import LabelModal from './LabelModal.svelte';
   import DiffModal from './DiffModal.svelte';
+  import ResultCard from './ResultCard.svelte';
+  import ApprovalCard from './ApprovalCard.svelte';
+  import {
+    approvalsForSession,
+    subscribeApprovals,
+    resetApprovals,
+    seedApprovals,
+  } from '../../session/approval/approval-store.js';
   import LoadEarlier from './LoadEarlier.svelte';
   import SessionTree from './SessionTree.svelte';
   import ShareDialog from './ShareDialog.svelte';
@@ -98,6 +106,28 @@
     return () => {
       document.body.classList.remove('modal-sheet-open');
       window.removeEventListener('keydown', onKey, { capture: true });
+    };
+  });
+
+  // Pending approvals for this session (future approval flow). Empty until a
+  // real approval_required event arrives — ApprovalCard stays unmounted in
+  // production until then. Re-rendered via the approval-store subscription.
+  let pendingApprovals = $state([]);
+  onMount(() => {
+    const sync = () => (pendingApprovals = approvalsForSession(sessionId));
+    sync();
+    // Seed from the server so an approval that fired before the SSE listener
+    // attached is still shown. Re-seed on each session reload too — a gated
+    // prompt writes entries (firing a reload) around the same time the
+    // approval SSE lands, so this closes the race deterministically.
+    const reseed = () => seedApprovals(sessionId).then(sync);
+    reseed();
+    window.addEventListener('pi-session-reload', reseed);
+    const unsub = subscribeApprovals(sync);
+    return () => {
+      unsub();
+      resetApprovals();
+      window.removeEventListener('pi-session-reload', reseed);
     };
   });
 
@@ -215,6 +245,10 @@
   <div id="content-container" class="content-container">
     <main id="content">
       <div id="header-container"><SessionInfoHeader model={sessionModel} /></div>
+      {#each pendingApprovals as approval (approval.id)}
+        <ApprovalCard {approval} enabled={true} />
+      {/each}
+      <ResultCard {sessionId} />
       <LoadEarlier model={sessionModel} {sessionId} navigateTo={runtime.navigateTo} />
       <div id="messages">
         <SessionContent model={sessionModel} afterRender={contentRuntime.afterRender} live />

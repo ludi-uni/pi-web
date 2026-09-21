@@ -99,7 +99,11 @@ export async function getWorkspaceForPath(path, { fetchImpl } = {}) {
   if (!path) return null;
   const list = await loadWorkspaces({ fetchImpl });
   const norm = (p) =>
-    String(p || '').trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    String(p || '')
+      .trim()
+      .replace(/\\/g, '/')
+      .replace(/\/+$/, '')
+      .toLowerCase();
   const target = norm(path);
   return list.find((w) => norm(w.path) === target) || null;
 }
@@ -124,4 +128,15 @@ export function createSessionInWorkspace(path, { model, fetchImpl } = {}) {
  */
 export function getWorkspaceGitInfo(path, { fetchImpl } = {}) {
   return getJSON('/api/git/info?path=' + encodeURIComponent(path), { fetchImpl });
+}
+
+/**
+ * List immediate subdirectories of `path` for the Add-workspace folder picker.
+ * Omit `path` (or pass '') to get the default browse root — the drive list on
+ * Windows, the home directory elsewhere. Returns { path, parent, dirs } where
+ * `dirs` are bare names (join onto `path` to descend).
+ */
+export function browseDirs(path, { fetchImpl } = {}) {
+  const q = path ? '?path=' + encodeURIComponent(path) : '';
+  return getJSON('/api/browse-dirs' + q, { fetchImpl });
 }

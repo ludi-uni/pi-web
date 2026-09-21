@@ -95,6 +95,8 @@ export async function handleSessionReload({
   return { entries, newCount };
 }
 
+import { handleApprovalSSE } from '../approval/approval-store.js';
+
 export function wireSessionEvents({
   eventSource,
   onReload,
@@ -164,6 +166,16 @@ export function wireSessionEvents({
       try {
         windowImpl.dispatchEvent(new CustomEventImpl('pi-queue-event'));
       } catch (_) {}
+    }
+  });
+  // 'approval' carries the future pi approval_* events. Forwarded into the
+  // approval store so ApprovalCard renders pending approvals. No production
+  // backend emits this yet — the listener is inert until then.
+  eventSource.addEventListener('approval', (event) => {
+    try {
+      handleApprovalSSE(JSON.parse(event.data));
+    } catch (error) {
+      onError(error);
     }
   });
   eventSource.onerror = onError;

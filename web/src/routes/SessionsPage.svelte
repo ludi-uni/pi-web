@@ -6,6 +6,7 @@
   import NewSessionModal from '../components/index/NewSessionModal.svelte';
   import ProjectsModal from '../components/index/ProjectsModal.svelte';
   import SessionsList from '../components/index/SessionsList.svelte';
+  import Inbox from '../components/index/Inbox.svelte';
   import { createStatusEvents } from '../shared/status-events.js';
   import { createAppEvents } from '../shared/app-events.js';
   import { applyRemoteSettings } from '../shared/settings-live.js';
@@ -18,7 +19,7 @@
     hydrateSettings,
     writeSetting,
   } from '../shared/settings-store.js';
-  import { navigate, backState } from '../shared/navigation.js';
+  import { navigate, backState, handleNavClick } from '../shared/navigation.js';
   import { t } from '../shared/i18n.js';
   import { SvelteSet, SvelteMap } from 'svelte/reactivity';
   import {
@@ -27,10 +28,13 @@
     defaultFetchRecent,
     defaultFetchSessions,
     defaultUpdateProject,
+    formatRelativeTime,
     layoutStorageKey,
     normalizeSession,
   } from '../index/sessions.js';
   import { loadWorkspaces } from '../index/workspaces.js';
+  import { buildInbox } from '../index/attention.js';
+  import { getJSON } from '../shared/api.js';
   import WorkspaceQuickAccess from '../components/index/WorkspaceQuickAccess.svelte';
 
   const PAGE_SIZE = 100;
@@ -56,6 +60,15 @@
   let projectsError = $state('');
   let workspaces = $state([]);
   let refreshInflight = false;
+  // Attention map + self-contained items from GET /api/attention, kept live by
+  // the 'attention' SSE event. items carries name/project/lastActivity so the
+  // Inbox doesn't depend on the 100-session /api/sessions page window.
+  let attention = $state({});
+  let attentionItems = $state([]);
+  // "Continue last session" — most recently viewed session from the server
+  // (session_attention.last_viewed_at), so it works across devices.
+  let lastViewed = $state(null);
+  const inbox = $derived(buildInbox(attentionItems, { runningIds: runningSessionIds, attention }));
 
   const totalSessionsLabel = $derived(
     total === 1 ? t('index.sessionCountOne') : t('index.sessionsCount', { count: total }),
@@ -257,6 +270,33 @@
     try {
       statusEvents.connect();
     } catch {}
+    const fetchAttention = () =>
+      getJSON('/api/attention')
+        .then((data) => {
+          attention = data?.attention || {};
+          attentionItems = Array.isArray(data?.items) ? data.items : [];
+        })
+        .catch(() => {});
+    const attentionEvents = createAppEvents({
+      event: 'attention',
+      onEvent: (row) => {
+        if (row && row.sessionId) {
+          attention = { ...attention, [row.sessionId]: row };
+          // The delta only carries flags, not name/project — refetch the
+          // self-contained item list so the row renders with metadata.
+          fetchAttention();
+        }
+      },
+    });
+    try {
+      attentionEvents.connect();
+    } catch {}
+    fetchAttention();
+    getJSON('/api/session/last-viewed')
+      .then((data) => {
+        if (data?.sessionId) lastViewed = data;
+      })
+      .catch(() => {});
     const settingsEvents = createAppEvents({
       event: 'settings',
       onEvent: (payload) => {
@@ -305,6 +345,7 @@
       window.removeEventListener('keydown', keydown, { capture: true });
       window.removeEventListener('click', click);
       statusEvents.cleanup?.();
+      attentionEvents.cleanup?.();
       settingsEvents.cleanup?.();
       if (reloadTimer) clearTimeout(reloadTimer);
     };
@@ -323,6 +364,22 @@
 />
 
 <WorkspaceQuickAccess {workspaces} onNewSession={openNewSessionModal} />
+
+{#if lastViewed}
+  <a
+    class="continue-last"
+    data-testid="continue-last"
+    href={`/session?id=${encodeURIComponent(lastViewed.sessionId)}`}
+    onclick={(e) => handleNavClick(e, `/session?id=${encodeURIComponent(lastViewed.sessionId)}`)}
+  >
+    <span class="continue-last-label">{t('index.continueLast')}</span>
+    <span class="continue-last-name">{lastViewed.name || lastViewed.sessionId}</span>
+    {#if lastViewed.project}<span class="continue-last-project">{lastViewed.project}</span>{/if}
+    <span class="continue-last-time">{formatRelativeTime(lastViewed.lastViewedAt)}</span>
+  </a>
+{/if}
+
+<Inbox groups={inbox.groups} attentionCount={inbox.attentionCount} {runningStatuses} />
 
 <HomeMenu
   open={menuOpen}

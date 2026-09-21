@@ -125,12 +125,14 @@ func renderLiveDocumentStart(data liveDocumentData) string {
 	// iOS requires a PNG apple-touch-icon (SVG is ignored) and its own
 	// capable meta — mobile-web-app-capable alone doesn't enable standalone.
 	b.WriteString("<link rel=\"apple-touch-icon\" href=\"/apple-touch-icon.png\">\n")
-	b.WriteString("<link rel=\"manifest\" href=\"/manifest.webmanifest\">\n")
+	// crossorigin="use-credentials" is required: the manifest lives behind
+	// Cloudflare Access, so the fetch must carry the Access session cookie.
+	b.WriteString("<link rel=\"manifest\" href=\"/manifest.webmanifest\" crossorigin=\"use-credentials\">\n")
 	b.WriteString("<meta name=\"theme-color\" content=\"#0e0e13\">\n")
 	b.WriteString("<meta name=\"mobile-web-app-capable\" content=\"yes\">\n")
 	b.WriteString("<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n")
 	b.WriteString("<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n")
-	b.WriteString("<meta name=\"apple-mobile-web-app-title\" content=\"Pi Sessions\">\n")
+	b.WriteString("<meta name=\"apple-mobile-web-app-title\" content=\"Pi Web\">\n")
 	b.WriteString("<meta name=\"pi-web-theme\" content=\"")
 	b.WriteString(template.HTMLEscapeString(themeProvider()))
 	b.WriteString("\">\n")

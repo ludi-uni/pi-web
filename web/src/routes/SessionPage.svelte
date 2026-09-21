@@ -19,6 +19,18 @@
   import { resetSessionRuntimeContext } from '../session/session-runtime-context.js';
   import { t } from '../shared/i18n.js';
 
+  // POSTs the viewed ping for a session. Kept as a tiny module-level helper so
+  // the call site stays readable and tests can stub fetch via windowImpl.
+  function windowImplPostViewed(windowImpl, id) {
+    try {
+      windowImpl
+        .fetch(`/api/session/viewed?id=${encodeURIComponent(id)}`, {
+          method: 'POST',
+        })
+        .catch(() => {});
+    } catch {}
+  }
+
   // The reactive session model (docs/dev/svelte-migration-plan.md): created once
   // and provided via context so descendant components read from it. Hydrated
   // from the session payload below; the live runtime (startSessionPageRuntime in
@@ -71,6 +83,11 @@
         if (!active) return;
         sessionId = state.sessionId;
         sessionUUID = state.sessionUUID;
+        // Mark the session as viewed server-side so the Inbox clears its
+        // completed-unread flag. Best-effort; failure is harmless.
+        if (sessionId) {
+          windowImplPostViewed(window, sessionId);
+        }
         title = state.title;
         document.title = title;
         cwd = state.cwd;

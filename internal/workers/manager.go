@@ -2,6 +2,7 @@ package workers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -267,6 +268,31 @@ func (m *Manager) GetCommands(ctx context.Context, sessionID string) (cmds []Sla
 	}
 	cmds, err = worker.GetCommands(ctx)
 	return cmds, true, err
+}
+
+// approvalResponder is the optional interface a worker implements to forward
+// an approval decision to pi. Only the real pi worker supports it.
+type approvalResponder interface {
+	SendApprovalResponse(ctx context.Context, approvalID, decision string) (json.RawMessage, error)
+}
+
+// SendApprovalResponse routes an operator decision to the session's existing
+// worker. It never spawns a worker — an approval only exists while its worker
+// is alive, so a missing worker means the approval is gone (stale).
+var ErrNoApprovalWorker = errors.New("no live worker for approval session")
+
+func (m *Manager) SendApprovalResponse(ctx context.Context, sessionID, approvalID, decision string) (json.RawMessage, error) {
+	m.mu.Lock()
+	worker := m.workers[sessionID]
+	m.mu.Unlock()
+	if worker == nil {
+		return nil, ErrNoApprovalWorker
+	}
+	responder, ok := worker.(approvalResponder)
+	if !ok {
+		return nil, errors.New("worker does not support approval_response")
+	}
+	return responder.SendApprovalResponse(ctx, approvalID, decision)
 }
 
 func (m *Manager) Abort(ctx context.Context, sessionID string) error {

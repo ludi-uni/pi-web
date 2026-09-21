@@ -3,8 +3,15 @@
   import { t } from '../../../shared/i18n.js';
   import { ChatToolbarState } from './chat-toolbar-state.svelte.js';
   import ContextUsage from './ContextUsage.svelte';
+  import PromptHistory from './PromptHistory.svelte';
 
-  let { chatAvailable = true, toolbar = new ChatToolbarState(), modelLabel = '' } = $props();
+  let {
+    chatAvailable = true,
+    toolbar = new ChatToolbarState(),
+    modelLabel = '',
+    historyEntries = [],
+    historyTextarea = null,
+  } = $props();
 
   const statusText = $derived(
     toolbar.statusText || (chatAvailable ? t('composer.idle') : t('composer.unavailable')),
@@ -48,6 +55,7 @@
       aria-label={t('composer.attachPhotos')}
       disabled={!chatAvailable}>{@html icon(Paperclip, { size: 15 })}</button
     >
+    <PromptHistory entries={historyEntries} textarea={historyTextarea} />
     <span id="pi-chat-status" class="pi-chat-status {toolbar.statusClass}">{statusText}</span>
     <button
       type="button"
