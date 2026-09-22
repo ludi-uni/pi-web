@@ -27,8 +27,7 @@
     if (!chatAvailable) return null;
     // queued/accepted are "waiting to run" — check before isRunning because
     // isRunningStatus() treats them as running for the cancel-button logic.
-    if (toolbar.statusText === 'queued' || toolbar.statusText === 'accepted')
-      return { kind: 'waiting', label: t('session.statusWaiting') };
+    if (toolbar.isWaiting) return { kind: 'waiting', label: t('session.statusWaiting') };
     if (toolbar.isRunning) return { kind: 'running', label: t('session.statusRunning') };
     if (toolbar.statusClass === 'error')
       return { kind: 'failed', label: t('session.statusFailed') };

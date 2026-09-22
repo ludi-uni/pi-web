@@ -1,6 +1,20 @@
-import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { describe, expect, it, vi, afterEach } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import WorkspaceQuickAccess from './WorkspaceQuickAccess.svelte';
+
+function stubMobile(matches) {
+  vi.stubGlobal('matchMedia', undefined);
+  window.matchMedia = vi.fn(() => ({
+    matches,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+}
+
+afterEach(() => {
+  delete window.matchMedia;
+  vi.unstubAllGlobals();
+});
 
 function workspace(overrides = {}) {
   return {
@@ -61,5 +75,31 @@ describe('WorkspaceQuickAccess', () => {
     });
     await fireEvent.click(screen.getByTestId('workspace-quick-chip'));
     expect(window.location.pathname + window.location.search).toBe('/workspace?id=w1');
+  });
+
+  it('caps the chip list on mobile and offers a view-all chip', async () => {
+    stubMobile(true);
+    const many = Array.from({ length: 9 }, (_, i) =>
+      workspace({ id: `w${i}`, name: `ws-${i}`, pinned: false }),
+    );
+    render(WorkspaceQuickAccess, { props: { workspaces: many } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId('workspace-quick-chip')).toHaveLength(6);
+    });
+    const more = screen.getByTestId('workspace-quick-more');
+    expect(more.textContent).toContain('9');
+    expect(more.getAttribute('href')).toBe('/workspaces');
+  });
+
+  it('shows every workspace on desktop widths', async () => {
+    stubMobile(false);
+    const many = Array.from({ length: 9 }, (_, i) =>
+      workspace({ id: `w${i}`, name: `ws-${i}`, pinned: false }),
+    );
+    render(WorkspaceQuickAccess, { props: { workspaces: many } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId('workspace-quick-chip')).toHaveLength(9);
+    });
+    expect(screen.queryByTestId('workspace-quick-more')).toBeNull();
   });
 });

@@ -2,6 +2,7 @@
   import { t } from '../../shared/i18n.js';
   import { applyTheme } from '../../shared/theme.js';
   import { applyFonts } from '../../shared/fonts.js';
+  import { showToast } from '../../shared/toast.js';
   import { valueFor } from '../../settings/settings-support.js';
 
   let { settings = {}, onSave = () => {}, onSaved = () => {} } = $props();
@@ -66,7 +67,7 @@
 
   async function detectInstalledFonts() {
     if (typeof window.queryLocalFonts !== 'function') {
-      window.alert?.(t('settings.fontDetectUnsupported'));
+      showToast(t('settings.fontDetectUnsupported'), { id: 'font-detect', duration: 2500 });
       return;
     }
     try {
@@ -76,7 +77,7 @@
       );
       onSaved();
     } catch {
-      window.alert?.(t('settings.fontDetectDenied'));
+      showToast(t('settings.fontDetectDenied'), { id: 'font-detect', duration: 2500 });
     }
   }
 

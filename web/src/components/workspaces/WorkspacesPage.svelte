@@ -32,6 +32,7 @@
   let loadError = $state('');
   let busy = $state(false);
   let creatingFor = $state(''); // workspace id with an in-flight New Session
+  let confirmWorkspace = $state(null); // workspace pending remove confirmation
 
   // Per-workspace git info. Fetched once per workspace when its card mounts,
   // bounded by a small concurrency limit so a long list doesn't spawn dozens
@@ -200,6 +201,22 @@
     document.body?.classList.remove('modal-sheet-open');
   }
 
+  function openRemoveConfirm(workspace) {
+    confirmWorkspace = workspace;
+    document.body?.classList.add('modal-sheet-open');
+  }
+
+  function closeRemoveConfirm() {
+    confirmWorkspace = null;
+    if (!addOpen) document.body?.classList.remove('modal-sheet-open');
+  }
+
+  async function confirmRemove() {
+    const workspace = confirmWorkspace;
+    closeRemoveConfirm();
+    if (workspace) await workspaceAction(() => removeWorkspace(workspace.id));
+  }
+
   async function submitAdd(pathOverride) {
     const path = (pathOverride ?? addPath).trim();
     if (!path) {
@@ -253,13 +270,7 @@
   }
 
   async function remove(workspace) {
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm(t('workspaces.confirmRemove', { name: workspace.name }))
-    ) {
-      return;
-    }
-    await workspaceAction(() => removeWorkspace(workspace.id));
+    openRemoveConfirm(workspace);
   }
 
   const backHref =
@@ -272,7 +283,8 @@
     document.title = t('workspaces.title');
     refresh();
     const keydown = (e) => {
-      if (e.key === 'Escape' && addOpen) closeAdd();
+      if (e.key === 'Escape' && confirmWorkspace) closeRemoveConfirm();
+      else if (e.key === 'Escape' && addOpen) closeAdd();
     };
     window.addEventListener('keydown', keydown);
     return () => {
@@ -336,7 +348,7 @@
   {:else}
     <ul class="workspace-list" data-testid="workspace-list">
       {#each workspaces as workspace (workspace.id)}
-        <div use:observeGit={workspace.id} class="workspace-card-observer">
+        <li use:observeGit={workspace.id} class="workspace-card-observer">
           <WorkspaceCard
             {workspace}
             {busy}
@@ -348,7 +360,7 @@
             onRename={rename}
             onRemove={remove}
           />
-        </div>
+        </li>
       {/each}
     </ul>
   {/if}
@@ -495,6 +507,52 @@
           data-testid="workspace-add-submit"
           disabled={busy || !addPath.trim()}
           onclick={() => submitAdd()}>{t('common.add')}</button
+        >
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if confirmWorkspace}
+  <div
+    class="modal-overlay visible open"
+    role="presentation"
+    onclick={(e) => {
+      if (e.currentTarget === e.target) closeRemoveConfirm();
+    }}
+  >
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('workspaces.remove')}
+      data-testid="workspace-remove-modal"
+    >
+      <div class="modal-sheet-header">
+        <button
+          class="modal-sheet-back"
+          type="button"
+          aria-label={t('common.close')}
+          onclick={closeRemoveConfirm}
+        >
+          <span aria-hidden="true">←</span>
+          <span>{t('workspaces.remove')}</span>
+        </button>
+      </div>
+      <h2>{t('workspaces.remove')}</h2>
+      <p class="ws-muted ws-confirm-text">
+        {t('workspaces.confirmRemove', { name: confirmWorkspace.name })}
+      </p>
+      <div class="modal-actions">
+        <button class="btn-secondary" type="button" onclick={closeRemoveConfirm}
+          >{t('common.cancel')}</button
+        >
+        <button
+          class="btn-primary ws-btn-danger"
+          type="button"
+          data-testid="workspace-remove-confirm"
+          disabled={busy}
+          onclick={confirmRemove}>{t('workspaces.remove')}</button
         >
       </div>
     </div>

@@ -1,0 +1,126 @@
+/* Pet widget — fixed overlay, never affects layout/scroll/composer. */
+.pet-widget {
+  position: fixed;
+  z-index: 60;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none; /* overlay is click-through except the pet itself */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pet-widget.pet-pos-bottom-left {
+  right: auto;
+  left: calc(16px + env(safe-area-inset-left, 0px));
+}
+
+.pet-hit {
+  pointer-events: auto;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: none; /* we handle drags ourselves */
+  border-radius: 12px;
+}
+
+.pet-dragging .pet-hit {
+  cursor: grabbing;
+}
+
+.pet-dragging {
+  transition: none;
+  z-index: 70;
+}
+
+.pet-sprite {
+  display: block;
+}
+
+.pet-canvas {
+  display: block;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+
+.pet-bubble {
+  pointer-events: none;
+  max-width: 160px;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: var(--panel, #1e1e28);
+  color: var(--text, #e6e6ef);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.pet-state-running .pet-canvas,
+.pet-state-review .pet-canvas {
+  /* subtle bob while working */
+  animation: pet-bob 0.9s ease-in-out infinite;
+}
+
+.pet-flash .pet-canvas {
+  animation: pet-hop 0.45s ease-out;
+}
+
+@keyframes pet-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes pet-hop {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-state-running .pet-canvas,
+  .pet-state-review .pet-canvas,
+  .pet-flash .pet-canvas {
+    animation: none;
+  }
+}
+
+/* Mobile: sit on the right edge, above the composer but clear of it, and a
+   bit smaller so it never reads as part of the input row. */
+@media (max-width: 900px) {
+  .pet-widget {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+    transform-origin: bottom right;
+  }
+  .pet-widget .pet-canvas {
+    /* shrink the sprite ~25% on small viewports */
+    scale: 0.75;
+  }
+  .pet-widget.pet-pos-bottom-left {
+    left: calc(10px + env(safe-area-inset-left, 0px));
+  }
+  .pet-bubble {
+    max-width: 120px;
+    font-size: 11px;
+  }
+}

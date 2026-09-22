@@ -60,9 +60,7 @@ describe('WorkspacesPage', () => {
       expect(createSession).toHaveBeenCalledWith('D:\\Develop\\pi-web', { model: undefined });
     });
     await waitFor(() => {
-      expect(window.location.pathname + window.location.search).toBe(
-        '/session?id=new.jsonl',
-      );
+      expect(window.location.pathname + window.location.search).toBe('/session?id=new.jsonl');
     });
     // touch fires after a successful create.
     await waitFor(() => {
@@ -87,8 +85,7 @@ describe('WorkspacesPage', () => {
   it('Add Workspace submits path + name via the create action', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
-      json: () =>
-        Promise.resolve({ ok: true, workspace: { id: 'w2', name: 'x', path: '/x' } }),
+      json: () => Promise.resolve({ ok: true, workspace: { id: 'w2', name: 'x', path: '/x' } }),
     });
     vi.stubGlobal('fetch', fetchImpl);
 
@@ -123,9 +120,7 @@ describe('WorkspacesPage', () => {
             { path: 'D:\\Develop\\doll' },
           ],
         }),
-        fetchRecent: vi
-          .fn()
-          .mockResolvedValue({ locations: ['D:\\Develop\\doll', 'C:\\other'] }),
+        fetchRecent: vi.fn().mockResolvedValue({ locations: ['D:\\Develop\\doll', 'C:\\other'] }),
       }),
     });
     await fireEvent.click(await screen.findByTestId('workspace-add'));
@@ -140,7 +135,6 @@ describe('WorkspacesPage', () => {
   });
 
   it('remove asks for confirmation before deleting', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ ok: true }),
@@ -150,12 +144,44 @@ describe('WorkspacesPage', () => {
     render(WorkspacesPage, { props: props() });
     await fireEvent.click(await screen.findByTestId('workspace-menu'));
     await fireEvent.click(screen.getByText('Remove workspace'));
-    expect(confirmSpy).toHaveBeenCalled();
+    // In-app confirm sheet appears; nothing is removed until confirmed.
+    const modal = await screen.findByTestId('workspace-remove-modal');
+    expect(modal.textContent).toContain('pi-web');
     const removed = fetchImpl.mock.calls.some(
       (c) => typeof c[1]?.body === 'string' && c[1].body.includes('"action":"remove"'),
     );
     expect(removed).toBe(false);
-    confirmSpy.mockRestore();
+
+    // Confirming issues the remove action.
+    await fireEvent.click(screen.getByTestId('workspace-remove-confirm'));
+    await waitFor(() => {
+      const called = fetchImpl.mock.calls.some(
+        (c) => typeof c[1]?.body === 'string' && c[1].body.includes('"action":"remove"'),
+      );
+      expect(called).toBe(true);
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('cancel on the confirm sheet keeps the workspace', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ ok: true }),
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+
+    render(WorkspacesPage, { props: props() });
+    await fireEvent.click(await screen.findByTestId('workspace-menu'));
+    await fireEvent.click(screen.getByText('Remove workspace'));
+    await screen.findByTestId('workspace-remove-modal');
+    await fireEvent.click(screen.getByText('Cancel'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('workspace-remove-modal')).toBeNull();
+    });
+    const removed = fetchImpl.mock.calls.some(
+      (c) => typeof c[1]?.body === 'string' && c[1].body.includes('"action":"remove"'),
+    );
+    expect(removed).toBe(false);
     vi.unstubAllGlobals();
   });
 });

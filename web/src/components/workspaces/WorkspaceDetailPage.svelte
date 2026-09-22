@@ -1,7 +1,16 @@
 <script>
   import { onMount } from 'svelte';
   import SessionCard from '../index/SessionCard.svelte';
-  import { icon, Pin, PinOff, SquarePen, Pencil, Trash2, Folder } from '../../shared/icons.js';
+  import {
+    icon,
+    Pin,
+    PinOff,
+    SquarePen,
+    Pencil,
+    Trash2,
+    Folder,
+    MoreHorizontal,
+  } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { navigate } from '../../shared/navigation.js';
   import {
@@ -21,9 +30,7 @@
     formatRelativeTime,
   } from '../../index/sessions.js';
   import { fetchModelGroups } from '../../settings/settings-support.js';
-  import {
-    updateWorkspaceSettings,
-  } from '../../index/workspaces.js';
+  import { updateWorkspaceSettings } from '../../index/workspaces.js';
 
   let {
     workspaceId = '',
@@ -70,9 +77,7 @@
       modelAvailability = 'unknown';
       return;
     }
-    const found = modelGroups.some((g) =>
-      g.models.some((m) => m.value === wsModel),
-    );
+    const found = modelGroups.some((g) => g.models.some((m) => m.value === wsModel));
     modelAvailability = found ? 'available' : 'unavailable';
   });
 
@@ -129,10 +134,7 @@
     qpEditing = false;
   }
   function addQuickPrompt() {
-    qpDraft = [
-      ...qpDraft,
-      { id: 'qp-' + Date.now().toString(36), label: '', prompt: '' },
-    ];
+    qpDraft = [...qpDraft, { id: 'qp-' + Date.now().toString(36), label: '', prompt: '' }];
   }
   function removeQuickPrompt(i) {
     qpDraft = qpDraft.filter((_, idx) => idx !== i);
@@ -141,6 +143,7 @@
   let menuOpen = $state(false);
   let renaming = $state(false);
   let renameValue = $state('');
+  let confirmOpen = $state(false);
 
   const lastOpened = $derived(
     workspace?.lastOpenedAt ? formatRelativeTime(workspace.lastOpenedAt) : '',
@@ -234,7 +237,6 @@
     try {
       // Pass the workspace's model preset (if any) as the initial model.
       const model = workspace?.settings?.model || undefined;
-      console.log('[wsd] newSession model:', model, 'workspace:', workspace);
       const response = await createSession(workspace.path, { model });
       if (response?.ok && response.id) {
         navigate('/session?id=' + encodeURIComponent(response.id));
@@ -256,14 +258,20 @@
     );
   }
 
-  async function remove() {
+  function remove() {
     if (!workspace) return;
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm(t('workspaces.confirmRemove', { name: workspace.name }))
-    ) {
-      return;
-    }
+    confirmOpen = true;
+    document.body?.classList.add('modal-sheet-open');
+  }
+
+  function closeRemoveConfirm() {
+    confirmOpen = false;
+    document.body?.classList.remove('modal-sheet-open');
+  }
+
+  async function confirmRemove() {
+    if (!workspace) return;
+    closeRemoveConfirm();
     busy = true;
     try {
       await removeWorkspace(workspace.id);
@@ -292,12 +300,14 @@
       }
     })();
     const keydown = (e) => {
-      if (e.key === 'Escape') closeMenu();
+      if (e.key === 'Escape' && confirmOpen) closeRemoveConfirm();
+      else if (e.key === 'Escape') closeMenu();
     };
     window.addEventListener('keydown', keydown);
     return () => {
       cancelled = true;
       document.title = previousTitle;
+      document.body?.classList.remove('modal-sheet-open');
       window.removeEventListener('keydown', keydown);
     };
   });
@@ -437,9 +447,7 @@
           disabled={busy || creatingSession}
           onclick={newSession}
         >
-          <span class="ws-btn-ico" aria-hidden="true"
-            >{@html icon(SquarePen, { size: 14 })}</span
-          >
+          <span class="ws-btn-ico" aria-hidden="true">{@html icon(SquarePen, { size: 14 })}</span>
           <span>{creatingSession ? t('workspaces.creating') : t('workspaces.newSession')}</span>
         </button>
         <button
@@ -467,7 +475,8 @@
             aria-expanded={String(menuOpen)}
             onclick={toggleMenu}
           >
-            <span class="ws-btn-ico" aria-hidden="true">{@html icon(Pencil, { size: 14 })}</span
+            <span class="ws-btn-ico" aria-hidden="true"
+              >{@html icon(MoreHorizontal, { size: 14 })}</span
             >
           </button>
           {#if menuOpen}
@@ -478,8 +487,7 @@
                 role="menuitem"
                 onclick={startRename}
               >
-                <span class="ws-btn-ico" aria-hidden="true"
-                  >{@html icon(Pencil, { size: 13 })}</span
+                <span class="ws-btn-ico" aria-hidden="true">{@html icon(Pencil, { size: 13 })}</span
                 >
                 {t('workspaces.rename')}
               </button>
@@ -492,8 +500,7 @@
                   remove();
                 }}
               >
-                <span class="ws-btn-ico" aria-hidden="true"
-                  >{@html icon(Trash2, { size: 13 })}</span
+                <span class="ws-btn-ico" aria-hidden="true">{@html icon(Trash2, { size: 13 })}</span
                 >
                 {t('workspaces.remove')}
               </button>
@@ -518,9 +525,7 @@
       {#if settingsOpen}
         <div class="wsd-settings-body">
           <div class="wsd-field">
-            <label class="wsd-field-label" for="wsd-model"
-              >{t('workspaces.modelLabel')}</label
-            >
+            <label class="wsd-field-label" for="wsd-model">{t('workspaces.modelLabel')}</label>
             <select
               id="wsd-model"
               class="wsd-select"
@@ -584,7 +589,8 @@
                       type="button"
                       class="ws-btn wsd-qp-remove"
                       aria-label={t('workspaces.qpRemove')}
-                      onclick={() => removeQuickPrompt(i)}>{@html icon(Trash2, { size: 13 })}</button
+                      onclick={() => removeQuickPrompt(i)}
+                      >{@html icon(Trash2, { size: 13 })}</button
                     >
                   </div>
                 {/each}
@@ -648,9 +654,7 @@
             disabled={creatingSession}
             onclick={newSession}
           >
-            <span class="ws-btn-ico" aria-hidden="true"
-              >{@html icon(SquarePen, { size: 14 })}</span
-            >
+            <span class="ws-btn-ico" aria-hidden="true">{@html icon(SquarePen, { size: 14 })}</span>
             <span>{t('workspaces.newSession')}</span>
           </button>
         </div>
@@ -664,3 +668,49 @@
     </div>
   {/if}
 </div>
+
+{#if confirmOpen && workspace}
+  <div
+    class="modal-overlay visible open"
+    role="presentation"
+    onclick={(e) => {
+      if (e.currentTarget === e.target) closeRemoveConfirm();
+    }}
+  >
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('workspaces.remove')}
+      data-testid="workspace-remove-modal"
+    >
+      <div class="modal-sheet-header">
+        <button
+          class="modal-sheet-back"
+          type="button"
+          aria-label={t('common.close')}
+          onclick={closeRemoveConfirm}
+        >
+          <span aria-hidden="true">←</span>
+          <span>{t('workspaces.remove')}</span>
+        </button>
+      </div>
+      <h2>{t('workspaces.remove')}</h2>
+      <p class="ws-muted ws-confirm-text">
+        {t('workspaces.confirmRemove', { name: workspace.name })}
+      </p>
+      <div class="modal-actions">
+        <button class="btn-secondary" type="button" onclick={closeRemoveConfirm}
+          >{t('common.cancel')}</button
+        >
+        <button
+          class="btn-primary ws-btn-danger"
+          type="button"
+          data-testid="workspace-remove-confirm"
+          disabled={busy}
+          onclick={confirmRemove}>{t('workspaces.remove')}</button
+        >
+      </div>
+    </div>
+  </div>
+{/if}

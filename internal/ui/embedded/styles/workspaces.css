@@ -72,6 +72,24 @@
   border-color: color-mix(in srgb, var(--accent) 88%, #fff);
   color: var(--body-bg);
 }
+
+/* Destructive confirm (remove workspace). Overrides .btn-primary's accent
+   fill so the confirm action reads as dangerous, not primary. */
+.ws-btn-danger {
+  background: var(--danger, #c0392b);
+  border-color: var(--danger, #c0392b);
+  color: #fff;
+}
+.ws-btn-danger:hover {
+  background: color-mix(in srgb, var(--danger, #c0392b) 88%, #000);
+  border-color: color-mix(in srgb, var(--danger, #c0392b) 88%, #000);
+  color: #fff;
+}
+.ws-confirm-text {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 4px;
+}
 .ws-btn-ico {
   display: inline-flex;
   align-items: center;
@@ -362,8 +380,19 @@ a.workspace-card-name:focus-visible {
   font-size: 11px;
   color: var(--muted);
 }
+/* "All N" trailing chip shown on mobile when the list is capped. */
+.workspace-quick-chip--more {
+  text-decoration: none;
+  border-style: dashed;
+}
+.workspace-quick-chip--more .workspace-quick-chip-name {
+  color: var(--muted);
+}
+.workspace-quick-chip--more:hover .workspace-quick-chip-name {
+  color: var(--accent);
+}
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .workspace-quick-access {
     padding: 0 16px 12px;
   }
@@ -725,10 +754,11 @@ a.workspace-card-name:focus-visible {
 }
 
 /* Mobile sheet ordering: the Add-workspace modal is a flex column on small
-   screens (index.css @media <=700px) where children are positioned by `order`.
+   screens (index.css @media <=900px) where children are positioned by `order`.
    Give the new path row + browser explicit orders so they slot between the
-   suggestions and the name field instead of collapsing to the top. */
-@media (max-width: 700px) {
+   suggestions and the name field instead of collapsing to the top. The
+   confirm-remove sheet has no reorderable fields, so it needs no order rules. */
+@media (max-width: 900px) {
   .modal .ws-suggestions {
     order: 2;
     flex-shrink: 0;

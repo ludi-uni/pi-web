@@ -68,6 +68,24 @@
   // "Continue last session" — most recently viewed session from the server
   // (session_attention.last_viewed_at), so it works across devices.
   let lastViewed = $state(null);
+
+  // status-delta SSE is normally enough, but a missed delta (reconnect gap,
+  // coalesced event) leaves a session stuck "running" on the index forever.
+  // While anything is running, poll the session list + attention on a slow
+  // cadence so the index converges even after a dropped event. Idle pages
+  // never poll. syncRunningPoll is assigned inside onMount (it closes over
+  // fetchAttention); the set* helpers call it via optional chaining so they
+  // stay safe if invoked before mount.
+  const RUNNING_POLL_MS = 5000;
+  let runningPollTimer = null;
+  let syncRunningPoll = null;
+  let fetchAttentionRef = null;
+  function stopRunningPoll() {
+    if (runningPollTimer) {
+      clearInterval(runningPollTimer);
+      runningPollTimer = null;
+    }
+  }
   const inbox = $derived(buildInbox(attentionItems, { runningIds: runningSessionIds, attention }));
 
   const totalSessionsLabel = $derived(
@@ -83,6 +101,7 @@
     for (const id of Array.isArray(ids) ? ids : []) runningSessionIds.add(id);
     runningStatuses.clear();
     for (const [key, value] of Object.entries(statuses || {})) runningStatuses.set(key, value);
+    syncRunningPoll?.();
   }
 
   function setSessionRunning(id, running, status = {}) {
@@ -93,6 +112,19 @@
       runningSessionIds.delete(id);
       runningStatuses.delete(id);
     }
+    syncRunningPoll?.();
+  }
+
+  function startRunningPoll() {
+    if (runningPollTimer) return;
+    runningPollTimer = setInterval(() => {
+      if (runningSessionIds.size === 0) {
+        stopRunningPoll();
+        return;
+      }
+      refreshSessions({ preserveWindow: true });
+      fetchAttentionRef?.();
+    }, RUNNING_POLL_MS);
   }
 
   async function refreshSessions({ preserveWindow = false } = {}) {
@@ -292,6 +324,12 @@
       attentionEvents.connect();
     } catch {}
     fetchAttention();
+    fetchAttentionRef = fetchAttention;
+    syncRunningPoll = () => {
+      if (runningSessionIds.size > 0) startRunningPoll();
+      else stopRunningPoll();
+    };
+
     getJSON('/api/session/last-viewed')
       .then((data) => {
         if (data?.sessionId) lastViewed = data;
@@ -347,6 +385,7 @@
       statusEvents.cleanup?.();
       attentionEvents.cleanup?.();
       settingsEvents.cleanup?.();
+      stopRunningPoll();
       if (reloadTimer) clearTimeout(reloadTimer);
     };
   });

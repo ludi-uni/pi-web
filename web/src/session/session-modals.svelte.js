@@ -13,8 +13,10 @@ export const sessionModals = $state({
   fork: { open: false, entries: [], onSelect: null },
   catSettings: { open: false, controller: null, onChange: () => {} },
   label: { open: false, entryId: '', currentLabel: '', onSave: null },
+  rename: { open: false, currentName: '', onSave: null },
   diff: { open: false, sessionId: '' },
   projects: false,
+  newSession: false,
 });
 
 export function openShortcuts() {
@@ -52,9 +54,21 @@ export function openLabel({ entryId = '', currentLabel = '', onSave = null } = {
   sessionModals.label.open = true;
 }
 
+// Session rename dialog — same shape as openLabel: the caller supplies onSave
+// ({ name }) which persists via the API; the modal only collects the text.
+export function openRename({ currentName = '', onSave = null } = {}) {
+  sessionModals.rename.currentName = currentName;
+  sessionModals.rename.onSave = onSave;
+  sessionModals.rename.open = true;
+}
+
 export function openDiff({ sessionId = '' } = {}) {
   sessionModals.diff.sessionId = sessionId;
   sessionModals.diff.open = true;
+}
+
+export function openNewSession() {
+  sessionModals.newSession = true;
 }
 
 // The diff modal's open state is mirrored to a `?diff=open` query param so a
@@ -99,7 +113,11 @@ export function resetSessionModals() {
   sessionModals.label.entryId = '';
   sessionModals.label.currentLabel = '';
   sessionModals.label.onSave = null;
+  sessionModals.rename.open = false;
+  sessionModals.rename.currentName = '';
+  sessionModals.rename.onSave = null;
   sessionModals.diff.open = false;
   sessionModals.diff.sessionId = '';
   sessionModals.projects = false;
+  sessionModals.newSession = false;
 }

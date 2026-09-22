@@ -68,6 +68,11 @@ var settingDefaults = map[string]string{
 	"pi-web:v1:toggle:thinking":     "true",
 	"pi-web:v1:toggle:tools":        "true",
 	"pi-web:v1:toggle:tool-outputs": "false",
+	"pi-web:v1:pet:enabled":         "false",
+	"pi-web:v1:pet:id":              "",
+	"pi-web:v1:pet:scale":           "1",
+	"pi-web:v1:pet:position":        "bottom-right",
+	"pi-web:v1:pet:bubble":          "true",
 }
 
 // getSettings returns every server-backed setting: defaults overlaid with any

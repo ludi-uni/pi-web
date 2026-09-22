@@ -74,6 +74,23 @@
   background: color-mix(in srgb, var(--danger, #c0392b) 16%, transparent);
   border-color: color-mix(in srgb, var(--danger, #c0392b) 55%, transparent);
 }
+
+/* Filled danger button for the delete-confirm sheet (overrides .btn-primary). */
+.sched-btn-danger-fill {
+  background: var(--danger, #c0392b);
+  border-color: var(--danger, #c0392b);
+  color: #fff;
+}
+.sched-btn-danger-fill:hover {
+  background: color-mix(in srgb, var(--danger, #c0392b) 88%, #000);
+  border-color: color-mix(in srgb, var(--danger, #c0392b) 88%, #000);
+  color: #fff;
+}
+.sched-confirm-text {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 4px;
+}
 .schedules-page .sched-btn:disabled,
 .schedule-editor .sched-btn:disabled {
   opacity: 0.55;

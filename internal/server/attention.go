@@ -189,8 +189,15 @@ func (s *Server) markSessionViewed(sessionID string) {
 	// page re-fetches on every SSE reload, and we don't want each reload to
 	// count as a fresh "view" that resets unread too aggressively.
 	var prev string
-	_ = s.db.QueryRow(`SELECT last_viewed_at FROM session_attention WHERE session_id = ?`, sessionID).Scan(&prev)
-	if prev != "" {
+	var completedAt sql.NullString
+	_ = s.db.QueryRow(`SELECT last_viewed_at, completed_at FROM session_attention WHERE session_id = ?`, sessionID).
+		Scan(&prev, &completedAt)
+	// A completion recorded after the last view means the user is looking at a
+	// session that just finished — always let the ping mark it read, even inside
+	// the debounce window. Otherwise watching a run end leaves a phantom
+	// "completed unread" inbox entry (RFC3339 compares correctly as strings).
+	unreadCompletion := completedAt.Valid && completedAt.String > prev
+	if prev != "" && !unreadCompletion {
 		if t, err := time.Parse(time.RFC3339, prev); err == nil && s.now().Sub(t) < time.Minute {
 			return
 		}

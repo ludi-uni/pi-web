@@ -199,6 +199,32 @@ func TestMarkSessionViewedAndUnread(t *testing.T) {
 	}
 }
 
+func TestMarkSessionViewedBypassesDebounceForUnreadCompletion(t *testing.T) {
+	s := newAttentionServer(t)
+	writeAttentionSession(t, s.sessionsDir, "s.jsonl", []string{userMsg("u1"), assistantText("a1")})
+
+	// User opened the session (recent view), then the run finished while they
+	// were still on the page — completed_at lands after last_viewed_at. Bump
+	// the clock so the completion timestamp is strictly later (RFC3339 has
+	// second granularity).
+	s.markSessionViewed("s.jsonl")
+	s.now = func() time.Time { return time.Now().Add(2 * time.Second) }
+	s.updateAttentionOnIdle("s.jsonl")
+	row := s.attentionForSession("s.jsonl")
+	if got := needsAttention(false, row); got != attentionUnread {
+		t.Fatalf("expected unread after completion, got %q", got)
+	}
+
+	// A second viewed ping inside the 1-minute debounce window must still mark
+	// the session read — otherwise a user watching the run end sees a phantom
+	// "completed unread" inbox entry.
+	s.markSessionViewed("s.jsonl")
+	row = s.attentionForSession("s.jsonl")
+	if got := needsAttention(false, row); got != attentionNone {
+		t.Fatalf("expected none after viewed ping, got %q", got)
+	}
+}
+
 func TestAttentionEndpointAndViewedEndpoint(t *testing.T) {
 	s := newAttentionServer(t)
 	writeAttentionSession(t, s.sessionsDir, "s.jsonl", []string{

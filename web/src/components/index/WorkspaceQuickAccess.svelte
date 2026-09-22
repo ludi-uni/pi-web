@@ -1,9 +1,24 @@
 <script>
+  import { onMount } from 'svelte';
   import { icon, Folder, ChevronRight } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { handleNavClick } from '../../shared/navigation.js';
 
   let { workspaces = [] } = $props();
+
+  // On narrow screens the chip grid renders 2-per-row, so a long workspace
+  // list would push the Inbox and session list far down. Cap the visible
+  // chips on mobile; the trailing "view all" chip leads to /workspaces.
+  const MOBILE_CHIP_LIMIT = 6;
+  let isMobile = $state(false);
+  onMount(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mql = window.matchMedia('(max-width: 900px)');
+    const sync = () => (isMobile = mql.matches);
+    sync();
+    mql.addEventListener('change', sync);
+    return () => mql.removeEventListener('change', sync);
+  });
 
   const sortedWorkspaces = $derived(
     [...workspaces].sort((a, b) => {
@@ -15,6 +30,10 @@
     }),
   );
   const hasWorkspaces = $derived(sortedWorkspaces.length > 0);
+  const visibleWorkspaces = $derived(
+    isMobile ? sortedWorkspaces.slice(0, MOBILE_CHIP_LIMIT) : sortedWorkspaces,
+  );
+  const hiddenCount = $derived(sortedWorkspaces.length - visibleWorkspaces.length);
 
   function openWorkspace(workspace, event) {
     handleNavClick(event, `/workspace?id=${encodeURIComponent(workspace.id || '')}`);
@@ -37,7 +56,7 @@
       </a>
     </div>
     <div class="workspace-quick-access-list">
-      {#each sortedWorkspaces as workspace (workspace.id)}
+      {#each visibleWorkspaces as workspace (workspace.id)}
         <button
           type="button"
           class="workspace-quick-chip"
@@ -54,6 +73,21 @@
           {/if}
         </button>
       {/each}
+      {#if hiddenCount > 0}
+        <a
+          class="workspace-quick-chip workspace-quick-chip--more"
+          href="/workspaces"
+          data-testid="workspace-quick-more"
+          onclick={(e) => handleNavClick(e, '/workspaces')}
+        >
+          <span class="workspace-quick-chip-icon" aria-hidden="true"
+            >{@html icon(ChevronRight, { size: 14 })}</span
+          >
+          <span class="workspace-quick-chip-name"
+            >{t('workspaces.viewAll', { count: sortedWorkspaces.length })}</span
+          >
+        </a>
+      {/if}
     </div>
   </div>
 {/if}

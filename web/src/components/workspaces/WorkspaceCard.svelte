@@ -1,5 +1,14 @@
 <script>
-  import { icon, Pin, PinOff, SquarePen, Pencil, Trash2, Folder } from '../../shared/icons.js';
+  import {
+    icon,
+    Pin,
+    PinOff,
+    SquarePen,
+    Pencil,
+    Trash2,
+    Folder,
+    MoreHorizontal,
+  } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { formatRelativeTime } from '../../index/sessions.js';
   import { handleNavClick } from '../../shared/navigation.js';
@@ -61,7 +70,7 @@
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG from icons.js -->
 
-<li
+<div
   class="workspace-card"
   class:workspace-card--pinned={workspace.pinned}
   data-workspace-id={workspace.id}
@@ -170,7 +179,8 @@
           toggleMenu(e);
         }}
       >
-        <span class="ws-btn-ico" aria-hidden="true">{@html icon(Pencil, { size: 14 })}</span>
+        <span class="ws-btn-ico" aria-hidden="true">{@html icon(MoreHorizontal, { size: 14 })}</span
+        >
       </button>
       {#if menuOpen}
         <div class="workspace-menu" role="menu">
@@ -203,4 +213,4 @@
       {/if}
     </div>
   </div>
-</li>
+</div>

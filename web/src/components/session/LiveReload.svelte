@@ -28,6 +28,13 @@
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
   import { setSessionTitle } from '../../session/session-title.svelte.js';
 
+  // freshPrefetch: the first paint came from a /api/session response fetched
+  // moments ago (hover prefetch consumed by the route loader), so the
+  // mount-time convergence reload below is skipped — it would just re-fetch
+  // the same payload. Stale or missing prefetches (TTL-expired, bootstrap
+  // shell) still trigger the reload.
+  let { freshPrefetch = false } = $props();
+
   onMount(() => {
     const documentImpl = document;
     const windowImpl = window;
@@ -192,6 +199,13 @@
       onAnnotations: (list) => sessionRuntime.annotations?.setAnnotations(list),
     });
     liveConnection.connect();
+    // The initial payload may be stale — the page-shell bootstrap can predate
+    // recent session activity, and no 'reload' SSE event fires for changes
+    // that happened while the page wasn't open. Pull the canonical entries
+    // once on mount so the view always converges — unless the paint already
+    // came from a just-fetched prefetch, where the reload would be a
+    // duplicate fetch of the same payload.
+    if (!freshPrefetch) triggerReload();
     cleanups.push(liveConnection.dispose);
 
     return () => {

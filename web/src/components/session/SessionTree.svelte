@@ -24,6 +24,14 @@
       const stored = globalThis.localStorage?.getItem(SIDEBAR_TAB_KEY);
       if (stored && SIDEBAR_TABS.includes(stored)) return stored;
     } catch {}
+    // On mobile the drawer is opened to navigate *within* the current session
+    // far more often than to switch sessions, so the outline is the better
+    // default. Desktop keeps the sessions list (sidebar stays visible).
+    try {
+      if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 900px)')?.matches) {
+        return 'outline';
+      }
+    } catch {}
     return 'sessions';
   }
 

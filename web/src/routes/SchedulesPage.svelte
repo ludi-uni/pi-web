@@ -47,6 +47,7 @@
   let editingId = $state('');
   let saving = $state(false);
   let formError = $state('');
+  let confirmSchedule = $state(null); // schedule pending delete confirmation
 
   let modelFilter = $state('');
   let modelPickerOpen = $state(false);
@@ -131,7 +132,15 @@
       },
     });
     events.connect();
-    return () => events.cleanup();
+    const keydown = (e) => {
+      if (e.key === 'Escape' && confirmSchedule) closeDeleteConfirm();
+    };
+    window.addEventListener('keydown', keydown);
+    return () => {
+      events.cleanup();
+      document.body?.classList.remove('modal-sheet-open');
+      window.removeEventListener('keydown', keydown);
+    };
   });
 
   function openCreate() {
@@ -283,13 +292,20 @@
     }
   }
 
-  async function remove(schedule) {
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm(t('schedules.confirmDelete', { name: schedule.name }))
-    ) {
-      return;
-    }
+  function remove(schedule) {
+    confirmSchedule = schedule;
+    document.body?.classList.add('modal-sheet-open');
+  }
+
+  function closeDeleteConfirm() {
+    confirmSchedule = null;
+    if (!editorOpen) document.body?.classList.remove('modal-sheet-open');
+  }
+
+  async function confirmDelete() {
+    const schedule = confirmSchedule;
+    closeDeleteConfirm();
+    if (!schedule) return;
     try {
       await defaultDeleteSchedule(schedule.id);
       if (expandedId === schedule.id) expandedId = '';
@@ -526,6 +542,51 @@
   onclick={openCreate}>{@html icon(Plus, { size: 26 })}</button
 >
 
+{#if confirmSchedule}
+  <div
+    class="modal-overlay visible open"
+    role="presentation"
+    onclick={(e) => {
+      if (e.currentTarget === e.target) closeDeleteConfirm();
+    }}
+  >
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('schedules.delete')}
+      data-testid="schedule-delete-modal"
+    >
+      <div class="modal-sheet-header">
+        <button
+          class="modal-sheet-back"
+          type="button"
+          aria-label={t('common.close')}
+          onclick={closeDeleteConfirm}
+        >
+          <span aria-hidden="true">←</span>
+          <span>{t('schedules.delete')}</span>
+        </button>
+      </div>
+      <h2>{t('schedules.delete')}</h2>
+      <p class="sched-muted sched-confirm-text">
+        {t('schedules.confirmDelete', { name: confirmSchedule.name })}
+      </p>
+      <div class="modal-actions">
+        <button class="btn-secondary" type="button" onclick={closeDeleteConfirm}
+          >{t('common.cancel')}</button
+        >
+        <button
+          class="btn-primary sched-btn-danger-fill"
+          type="button"
+          data-testid="schedule-delete-confirm"
+          onclick={confirmDelete}>{t('schedules.delete')}</button
+        >
+      </div>
+    </div>
+  </div>
+{/if}
+
 <FullScreenSheet
   bind:open={editorOpen}
   title={editingId ? t('schedules.editTitle') : t('schedules.new')}
@@ -541,6 +602,11 @@
       bind:value={form.name}
       placeholder={t('schedules.namePlaceholder')}
     />
+  </label>
+
+  <label class="field checkbox">
+    <input type="checkbox" bind:checked={form.enabled} />
+    <span>{t('schedules.fieldEnabled')}</span>
   </label>
 
   <label class="field">
@@ -695,11 +761,6 @@
       <input type="text" bind:value={form.timezone} placeholder="UTC" />
     </label>
   {/if}
-
-  <label class="field checkbox">
-    <input type="checkbox" bind:checked={form.enabled} />
-    <span>{t('schedules.fieldEnabled')}</span>
-  </label>
 
   {#if formError}
     <p class="sched-error" role="alert">{formError}</p>

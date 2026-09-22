@@ -14,6 +14,7 @@
   import CatGatekeeper from './CatGatekeeper.svelte';
   import BtwPopup from './BtwPopup.svelte';
   import LabelModal from './LabelModal.svelte';
+  import RenameModal from './RenameModal.svelte';
   import DiffModal from './DiffModal.svelte';
   import ResultCard from './ResultCard.svelte';
   import ApprovalCard from './ApprovalCard.svelte';
@@ -27,8 +28,16 @@
   import SessionTree from './SessionTree.svelte';
   import ShareDialog from './ShareDialog.svelte';
   import ProjectsModal from '../index/ProjectsModal.svelte';
-  import { defaultFetchProjects, defaultUpdateProject } from '../../index/sessions.js';
+  import NewSessionModal from '../index/NewSessionModal.svelte';
+  import {
+    defaultFetchProjects,
+    defaultUpdateProject,
+    defaultFetchRecent,
+    defaultCreateSession,
+  } from '../../index/sessions.js';
+  import { loadWorkspaces } from '../../index/workspaces.js';
   import { t } from '../../shared/i18n.js';
+  import { navigate } from '../../shared/navigation.js';
   import {
     sessionModals,
     hasDiffUrlParam,
@@ -52,6 +61,7 @@
     chatAvailable = true,
     chatDisabledReason = '',
     modelLabel = '',
+    freshPrefetch = false,
     dataEl = $bindable(null),
   } = $props();
 
@@ -63,6 +73,15 @@
   let projectsBusy = $state(false);
   let projectsError = $state('');
   let projectsRevision = $state(0);
+
+  // "New session (choose folder)" sheet — same modal the index uses, so the
+  // operator can start a session in another project without going back to the
+  // index first.
+  let newSessionPath = $state('');
+  let newSessionRecent = $state([]);
+  let newSessionWorkspaces = $state([]);
+  let newSessionCreating = $state(false);
+  let newSessionError = $state('');
 
   async function refreshProjectsList() {
     projectsError = '';
@@ -89,6 +108,43 @@
       projectsError = error.message || t('index.failedUpdateProject');
     } finally {
       projectsBusy = false;
+    }
+  }
+
+  $effect(() => {
+    if (!sessionModals.newSession) return;
+    newSessionPath = '';
+    newSessionError = '';
+    document.body.classList.add('modal-sheet-open');
+    defaultFetchRecent()
+      .then((r) => (newSessionRecent = (r.locations || []).slice(0, 10)))
+      .catch(() => (newSessionRecent = []));
+    loadWorkspaces()
+      .then((list) => (newSessionWorkspaces = list))
+      .catch(() => (newSessionWorkspaces = []));
+    return () => document.body.classList.remove('modal-sheet-open');
+  });
+
+  async function createNewSession() {
+    const path = newSessionPath.trim();
+    if (!path) {
+      newSessionError = t('index.enterPath');
+      return;
+    }
+    newSessionCreating = true;
+    newSessionError = '';
+    try {
+      const response = await defaultCreateSession(path);
+      if (response?.ok && response.id) {
+        sessionModals.newSession = false;
+        navigate('/session?id=' + encodeURIComponent(response.id));
+        return;
+      }
+      newSessionError = response?.error || t('index.failedCreateSession');
+    } catch (err) {
+      newSessionError = err?.message || t('index.networkError');
+    } finally {
+      newSessionCreating = false;
     }
   }
 
@@ -237,7 +293,7 @@
 
 <!-- Live reload (SSE) mounts before <ChatComposer> so its optimistic
      "message sent" listener is attached before the user can send. -->
-<LiveReload />
+<LiveReload {freshPrefetch} />
 
 <div id="sidebar-overlay"></div>
 <div id="app">
@@ -278,7 +334,23 @@
   currentLabel={sessionModals.label.currentLabel}
   onSave={sessionModals.label.onSave}
 />
+<RenameModal
+  bind:open={sessionModals.rename.open}
+  currentName={sessionModals.rename.currentName}
+  onSave={sessionModals.rename.onSave}
+/>
 <DiffModal bind:open={sessionModals.diff.open} sessionId={sessionModals.diff.sessionId} />
+
+<NewSessionModal
+  open={sessionModals.newSession}
+  recent={newSessionRecent}
+  workspaces={newSessionWorkspaces}
+  bind:path={newSessionPath}
+  creating={newSessionCreating}
+  error={newSessionError}
+  onClose={() => (sessionModals.newSession = false)}
+  onCreate={createNewSession}
+/>
 
 <ProjectsModal
   open={sessionModals.projects}

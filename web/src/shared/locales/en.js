@@ -157,6 +157,7 @@ export default {
   'workspaces.modelUnavailable': 'unavailable',
   'workspaces.quickAccess': 'Quick access',
   'workspaces.browseAll': 'Browse all',
+  'workspaces.viewAll': 'All {count}',
   'workspaces.browse': 'Browse…',
   'workspaces.browseUp': 'Up',
   'workspaces.browseRoot': 'Drives',
@@ -295,6 +296,8 @@ export default {
   'session.filterLabeledTitle': 'Only labeled entries',
   'session.filterAllTitle': 'Show everything',
   'session.resizeTree': 'Resize session sidebar',
+  'session.sessionName': 'Session name',
+  'session.forkConfirm': 'Tap again to fork from here',
   'session.labelEntry': 'Add or edit label',
   'session.copyText': 'Copy message text',
   'session.copyCode': 'Copy code',
@@ -310,6 +313,7 @@ export default {
 
   // ── Session command menu ──
   'menu.searchSessions': 'Search Sessions',
+  'menu.newSessionElsewhere': 'New session (choose folder)',
   'menu.rename': 'Rename',
   'menu.share': 'Share',
   'menu.fork': 'Fork',
@@ -466,7 +470,6 @@ export default {
   'result.working': 'Working tree',
   'result.ahead': 'ahead',
   'result.behind': 'behind',
-  'result.noUpstream': '',
   'result.fileGone': 'File no longer exists',
   'result.secretFile': 'Sensitive file — preview disabled',
 
@@ -577,6 +580,22 @@ export default {
   'settings.catWakeupHint': 'When the cat lets you back in.',
   'settings.catSleep': 'Sleep reminder (minutes)',
   'settings.catSleepHint': 'How long the sleepy cat stays before locking.',
+
+  'settings.pet': 'Pet',
+  'settings.petEnable': 'Enable pet companion',
+  'settings.petEnableHint':
+    'Shows a Codex-compatible pet in the corner that reacts to the session state.',
+  'settings.petSelect': 'Pet',
+  'settings.petSelectHint': 'Pet package from ~/.pi/agent/pi-web/pets/ or ~/.codex/pets/.',
+  'settings.petAuto': 'Auto (first found)',
+  'settings.petScale': 'Pet size',
+  'settings.petScaleHint': 'Sprite scale factor.',
+  'settings.petPosition': 'Position',
+  'settings.petPositionHint': 'Which corner the pet sits in.',
+  'settings.petPosBR': 'Bottom right',
+  'settings.petPosBL': 'Bottom left',
+  'settings.petBubble': 'Status bubble',
+  'settings.petBubbleHint': 'Show a short status bubble above the pet.',
 
   'settings.about': 'About',
   'settings.docs': 'Documentation',
@@ -700,6 +719,15 @@ export default {
   'version.serverNotBack': 'Server did not come back. Reload the page manually.',
 
   // ── Custom-language editor (settings) ──
+  // ── Pet widget ──
+  'pet.ariaLabel': 'Pet companion',
+  'pet.hide': 'Tap for a reaction, long-press to hide',
+  'pet.bubbleRunning': 'Working…',
+  'pet.bubbleWaiting': 'Waiting for you',
+  'pet.bubbleReview': 'Needs review',
+  'pet.bubbleFailed': 'Something failed',
+  'pet.bubbleCompleted': 'Done!',
+
   'settings.copiedTemplate': 'Copied an English template to the clipboard.',
   'settings.clipboardUnavailable': 'Clipboard unavailable — inserted the template below.',
   'settings.invalidJson': 'Invalid JSON: {error}',

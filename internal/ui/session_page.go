@@ -13,6 +13,7 @@ import (
 
 // share-session.html renders the static export/share snapshot only; the live
 // session page is the Svelte SPA served via the app.html shell.
+//
 //go:embed embedded/share-session.html
 var exportSessionHtml string
 
@@ -29,6 +30,9 @@ var liveMenuCss string
 
 //go:embed embedded/styles/palette.css
 var livePaletteCss string
+
+//go:embed embedded/styles/pet.css
+var livePetCss string
 
 // LargeSessionTailEntries controls how many trailing entries get embedded
 // in the initial HTML render for huge sessions. The frontend exposes a

@@ -147,6 +147,8 @@ describe('session-page-data', () => {
     expect(state.title).toBe('Prefetched');
     // Only one /api/session call total, the one started by prefetchSession.
     expect(calls).toEqual(['/api/session?id=s.jsonl&paginate=1']);
+    // A fresh prefetch means LiveReload can skip its mount-time reload.
+    expect(state.freshPrefetch).toBe(true);
   });
 
   it('falls back to a fresh fetch when the prefetch rejects', async () => {
@@ -197,5 +199,7 @@ describe('session-page-data', () => {
 
     expect(fetched).toBe(true);
     expect(state.title).toBe('Fetched');
+    // A plain fetch is not marked fresh — the mount-time reload still runs.
+    expect(state.freshPrefetch).toBe(false);
   });
 });

@@ -56,6 +56,9 @@
   let chatDisabledReason = $state('');
   let modelLabel = $state('');
   let dataEl = $state(null);
+  // True when the first paint came from a just-fetched /api/session prefetch —
+  // LiveReload skips its mount-time convergence reload in that case.
+  let freshPrefetch = $state(false);
 
   onMount(() => {
     const previousTitle = document.title;
@@ -96,6 +99,7 @@
         chatAvailable = state.chatAvailable;
         chatDisabledReason = state.chatDisabledReason;
         modelLabel = state.modelLabel;
+        freshPrefetch = !!state.freshPrefetch;
         hydrateSessionModel({
           sessionModel,
           payloadBase64,
@@ -125,9 +129,20 @@
       }
     })();
 
+    // Watching a run finish while the page is open: the server records
+    // completed_at > last_viewed_at, which would leave a phantom "completed
+    // unread" row in the inbox. Re-ping viewed on worker-done so a session the
+    // user is actively looking at is never flagged unread. markSessionViewed
+    // bypasses its debounce exactly for this case.
+    const onWorkerDone = () => {
+      if (sessionId) windowImplPostViewed(window, sessionId);
+    };
+    window.addEventListener('pi-worker-done', onWorkerDone);
+
     return () => {
       active = false;
       clearTimeout(loadingTimer);
+      window.removeEventListener('pi-worker-done', onWorkerDone);
       disposeRuntime?.();
       resetSessionModals();
       resetSessionRuntime();
@@ -162,6 +177,7 @@
     {chatAvailable}
     {chatDisabledReason}
     {modelLabel}
+    {freshPrefetch}
     bind:dataEl
   />
 {/if}

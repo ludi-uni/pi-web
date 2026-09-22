@@ -40,6 +40,11 @@ export const SERVER_SETTING_KEYS = [
   'pi-web:v1:toggle:thinking',
   'pi-web:v1:toggle:tools',
   'pi-web:v1:toggle:tool-outputs',
+  'pi-web:v1:pet:enabled',
+  'pi-web:v1:pet:id',
+  'pi-web:v1:pet:scale',
+  'pi-web:v1:pet:position',
+  'pi-web:v1:pet:bubble',
 ];
 
 // Network sync is disabled until a page entrypoint configures it. This keeps

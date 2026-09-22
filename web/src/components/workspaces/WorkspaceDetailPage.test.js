@@ -130,7 +130,6 @@ describe('WorkspaceDetailPage', () => {
   });
 
   it('remove confirms then navigates back to /workspaces', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ ok: true }),
@@ -141,6 +140,10 @@ describe('WorkspaceDetailPage', () => {
     await screen.findByTestId('wsd-name');
     await fireEvent.click(screen.getByTestId('wsd-menu'));
     await fireEvent.click(screen.getByText('Remove workspace'));
+    // In-app confirm sheet; removal only happens after confirming.
+    await screen.findByTestId('workspace-remove-modal');
+    expect(window.location.pathname).toBe('/workspace');
+    await fireEvent.click(screen.getByTestId('workspace-remove-confirm'));
     await waitFor(() => {
       expect(window.location.pathname).toBe('/workspaces');
     });
@@ -268,9 +271,9 @@ describe('WorkspaceDetailPage', () => {
     render(WorkspaceDetailPage, {
       props: props({
         createSession,
-        fetchWorkspace: vi.fn().mockResolvedValue(
-          workspace({ settings: { model: 'openai/gpt-5' } }),
-        ),
+        fetchWorkspace: vi
+          .fn()
+          .mockResolvedValue(workspace({ settings: { model: 'openai/gpt-5' } })),
       }),
     });
     await fireEvent.click(await screen.findByTestId('wsd-new-session'));
@@ -313,9 +316,9 @@ describe('WorkspaceDetailPage', () => {
 
     render(WorkspaceDetailPage, {
       props: props({
-        fetchWorkspace: vi.fn().mockResolvedValue(
-          workspace({ settings: { model: 'openai/deprecated-model' } }),
-        ),
+        fetchWorkspace: vi
+          .fn()
+          .mockResolvedValue(workspace({ settings: { model: 'openai/deprecated-model' } })),
       }),
     });
     await screen.findByTestId('wsd-name');
@@ -334,9 +337,7 @@ describe('WorkspaceDetailPage', () => {
     render(WorkspaceDetailPage, {
       props: props({
         createSession,
-        fetchWorkspace: vi.fn().mockResolvedValue(
-          workspace({ settings: { model: 'openai/bad' } }),
-        ),
+        fetchWorkspace: vi.fn().mockResolvedValue(workspace({ settings: { model: 'openai/bad' } })),
       }),
     });
     await fireEvent.click(await screen.findByTestId('wsd-new-session'));

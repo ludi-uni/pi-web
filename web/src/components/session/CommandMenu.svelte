@@ -23,12 +23,19 @@
     Settings,
     Tag,
     Link2,
+    SquarePen,
   } from '../../shared/icons.js';
   import * as sidebarApi from '../../session/ui/sidebar.js';
   import { openVersionModal } from '../../shared/version.js';
   import { navigate, handleNavClick, backState } from '../../shared/navigation.js';
   import { openSessionPalette } from '../../shared/command-palette-runtime.js';
-  import { openModelUsage, openFork, openDiff } from '../../session/session-modals.svelte.js';
+  import {
+    openModelUsage,
+    openFork,
+    openDiff,
+    openRename,
+    openNewSession,
+  } from '../../session/session-modals.svelte.js';
   import { showToast } from '../../shared/toast.js';
   import { copyToClipboard } from '../../shared/clipboard.js';
   import { sessionTitle, setSessionTitle } from '../../session/session-title.svelte.js';
@@ -51,9 +58,10 @@
   // render on desktop only.
   const primaryItems = [
     { action: 'list-sessions', icon: Search, label: 'menu.searchSessions', kbd: '⌘K' },
+    { action: 'new-session-elsewhere', icon: SquarePen, label: 'menu.newSessionElsewhere' },
     { action: 'rename', icon: Pencil, label: 'menu.rename' },
     { action: 'share', icon: Share2, label: 'menu.share' },
-  { action: 'copy-link', icon: Link2, label: 'share.sessionLink' },
+    { action: 'copy-link', icon: Link2, label: 'share.sessionLink' },
     { action: 'fork', icon: GitFork, label: 'menu.fork' },
     { action: 'clone', icon: Copy, label: 'menu.clone' },
     { action: 'terminal', icon: Terminal, label: 'menu.resumeTerminal' },
@@ -155,9 +163,7 @@
           // Prefer the system share sheet (mobile PC-handoff); fall back to a
           // clipboard copy when navigator.share is unavailable or cancelled.
           if (typeof navigator.share === 'function') {
-            navigator
-              .share({ title: sessionTitle.name || 'Session', url })
-              .catch(() => {});
+            navigator.share({ title: sessionTitle.name || 'Session', url }).catch(() => {});
           } else {
             copyToClipboard(url).then((ok) => {
               if (ok) toast(t('common.copied'));
@@ -172,6 +178,10 @@
         case 'new-session':
           clickHidden('new-btn');
           closeMenu();
+          break;
+        case 'new-session-elsewhere':
+          closeMenu();
+          openNewSession();
           break;
         case 'terminal':
           clickHidden('resume-btn');
@@ -188,16 +198,18 @@
           break;
         case 'rename': {
           const current = sessionTitle.name;
-          const next = window.prompt(t('menu.renamePrompt'), current);
-          const trimmed = next ? next.trim() : '';
           closeMenu();
-          if (!trimmed || trimmed === current) break;
-          renameSession(sessionId, trimmed)
-            .then((data) => {
-              setSessionTitle((data && data.name) || trimmed);
-              toast(t('menu.renamed'));
-            })
-            .catch(() => toast(t('git.renameFailed')));
+          openRename({
+            currentName: current,
+            onSave: ({ name }) => {
+              renameSession(sessionId, name)
+                .then((data) => {
+                  setSessionTitle((data && data.name) || name);
+                  toast(t('menu.renamed'));
+                })
+                .catch(() => toast(t('git.renameFailed')));
+            },
+          });
           break;
         }
         case 'fork': {

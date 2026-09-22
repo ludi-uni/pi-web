@@ -58,4 +58,39 @@ describe('session-prefetch', () => {
     // Entry was already removed when consumed; another consume returns null.
     expect(consumeSessionPrefetch('s.jsonl')).toBe(null);
   });
+
+  it('expires stale prefetches so a hover-then-delayed-click refetches', async () => {
+    let now = 1000;
+    const nowImpl = () => now;
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls++;
+      return { ok: true, json: async () => ({ name: `v${calls}` }) };
+    };
+
+    prefetchSession('s.jsonl', { fetchImpl, nowImpl });
+    // 20s later the session may have progressed — the cached promise is dropped.
+    now += 20000;
+    expect(consumeSessionPrefetch('s.jsonl', { nowImpl })).toBe(null);
+
+    // A fresh prefetch after expiry starts a new request.
+    prefetchSession('s.jsonl', { fetchImpl, nowImpl });
+    expect(calls).toBe(2);
+    const data = await consumeSessionPrefetch('s.jsonl', { nowImpl });
+    expect(data).toEqual({ name: 'v2' });
+  });
+
+  it('does not dedupe a prefetch that is already past the TTL', () => {
+    let now = 0;
+    const nowImpl = () => now;
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls++;
+      return { ok: true, json: async () => ({}) };
+    };
+    prefetchSession('s.jsonl', { fetchImpl, nowImpl });
+    now += 15000;
+    prefetchSession('s.jsonl', { fetchImpl, nowImpl });
+    expect(calls).toBe(2);
+  });
 });

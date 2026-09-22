@@ -396,6 +396,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	if s.push != nil {
 		s.push.Register(mux, s.auth.Wrap)
 	}
+	mux.HandleFunc("/api/pets", s.auth.Wrap(s.handleApiPets))
+	mux.HandleFunc("/api/pet/file", s.auth.Wrap(s.handlePetFile))
 	mux.HandleFunc("/api/sounds", s.auth.Wrap(s.handleApiSounds))
 	mux.HandleFunc("/sounds/", s.handleSounds)
 	if s.updater != nil {

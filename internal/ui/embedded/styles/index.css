@@ -827,7 +827,11 @@ body.modal-sheet-open { overflow: hidden; }
 ::-webkit-scrollbar-thumb { background: var(--dim); }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
-@media (max-width: 700px) {
+/* Mobile breakpoint: 900px, matching isMobileLayout() (sidebar.js), the
+   session page's mobile layout, FullScreenSheet, and the workspace FAB — so a
+   tablet-width window gets the mobile chrome (sheet modals, FAB, compact
+   header) instead of a half-desktop layout. */
+@media (max-width: 900px) {
     .header-inner { padding: 16px 16px 18px; }
     .workspace-summary { margin-top: 24px; }
     .content { padding: 24px 16px calc(92px + env(safe-area-inset-bottom)); }
@@ -1029,6 +1033,22 @@ body.modal-sheet-open { overflow: hidden; }
 }
 .inbox-group-icon { display: inline-flex; }
 .inbox-group-count { color: var(--dim); font-weight: 500; }
+/* Collapsible group headers (completed / running). Button reset so the row
+   looks identical to the static labels; the chevron sits at the right edge. */
+.inbox-group-label--toggle {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
+}
+.inbox-group-label--toggle .inbox-group-chev {
+    margin-left: auto;
+    color: var(--dim);
+    font-size: 10px;
+}
+.inbox-items[hidden] { display: none; }
 .inbox-group--waiting .inbox-group-icon,
 .inbox-group--approval .inbox-group-icon { color: var(--accent); }
 .inbox-group--failed .inbox-group-icon { color: var(--danger); }

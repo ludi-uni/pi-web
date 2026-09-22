@@ -58,13 +58,38 @@ export function wireSessionContentRuntime({
       BlobImpl: target.Blob,
     });
 
-  // Fork a new session starting at an entry.
+  // Fork a new session starting at an entry. First click arms the button
+  // (shows a confirm state for a few seconds); a second click within the
+  // window performs the fork. Replaces the former window.confirm() so the
+  // flow works inside the app's own styling on mobile.
+  let armedForkBtn = null;
+  let armedForkTimer = null;
+  const armFork = (btn) => {
+    if (armedForkBtn && armedForkBtn !== btn) disarmFork();
+    armedForkBtn = btn;
+    btn.classList.add('fork-btn--confirm');
+    btn.setAttribute('aria-label', t('session.forkConfirm'));
+    btn.title = t('session.forkConfirm');
+    clearTimeout(armedForkTimer);
+    armedForkTimer = setTimeout(disarmFork, 4000);
+  };
+  const disarmFork = () => {
+    clearTimeout(armedForkTimer);
+    armedForkTimer = null;
+    if (armedForkBtn) {
+      armedForkBtn.classList.remove('fork-btn--confirm');
+      armedForkBtn.removeAttribute('aria-label');
+      armedForkBtn.title = '';
+      armedForkBtn = null;
+    }
+  };
+
   const forkEntry = (entryId, btn) => {
-    if (
-      !target.confirm('Are you sure you want to fork a new session starting from this message?')
-    ) {
+    if (armedForkBtn !== btn) {
+      armFork(btn);
       return;
     }
+    disarmFork();
     const originalChildren = Array.from(btn.childNodes).map((node) => node.cloneNode(true));
     const restoreButton = () =>
       btn.replaceChildren(...originalChildren.map((node) => node.cloneNode(true)));
@@ -205,6 +230,7 @@ export function wireSessionContentRuntime({
   return {
     sessionFormat,
     dispose: () => {
+      disarmFork();
       messagesEl?.removeEventListener('click', onMessagesClick);
       if (previousDownloadSessionJson === undefined) delete target.downloadSessionJson;
       else target.downloadSessionJson = previousDownloadSessionJson;

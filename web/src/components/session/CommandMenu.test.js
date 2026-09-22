@@ -26,18 +26,27 @@ afterEach(() => {
 });
 
 describe('CommandMenu', () => {
-  it('renames via the API and updates the page title', async () => {
+  it('opens the rename modal seeded with the current title', async () => {
+    render(CommandMenu, { props: { sessionId: 'session.jsonl' } });
+    await tick();
+
+    await fireEvent.click(document.querySelector('[data-action="rename"]'));
+    expect(sessionModals.rename.open).toBe(true);
+    expect(sessionModals.rename.currentName).toBe('Old');
+  });
+
+  it('renames via the API and updates the page title when the modal saves', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
         Promise.resolve(new Response(JSON.stringify({ name: 'New Name' }), { status: 200 })),
       ),
     );
-    window.prompt = vi.fn(() => ' New Name ');
     render(CommandMenu, { props: { sessionId: 'session.jsonl' } });
     await tick();
 
     await fireEvent.click(document.querySelector('[data-action="rename"]'));
+    sessionModals.rename.onSave({ name: 'New Name' });
     await waitFor(() => expect(sessionTitle.name).toBe('New Name'));
     expect(fetch).toHaveBeenCalledWith(
       '/api/rename-session?id=session.jsonl',
@@ -50,11 +59,11 @@ describe('CommandMenu', () => {
       'fetch',
       vi.fn(() => Promise.resolve(new Response(JSON.stringify({ error: 'bad' }), { status: 500 }))),
     );
-    window.prompt = vi.fn(() => 'New Name');
     render(CommandMenu, { props: { sessionId: 'session.jsonl' } });
     await tick();
 
     await fireEvent.click(document.querySelector('[data-action="rename"]'));
+    sessionModals.rename.onSave({ name: 'New Name' });
     await waitFor(() =>
       expect(document.getElementById('command-menu-toast')?.textContent).toBe('Rename failed'),
     );

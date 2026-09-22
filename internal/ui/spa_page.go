@@ -13,7 +13,7 @@ var appTmplStr string
 var appTmpl = template.Must(template.New("app").Parse(appTmplStr))
 
 func appStylesheets() template.HTML {
-	return template.HTML("<style>\n" + liveThemeCss + "\n" + indexCSS + "\n" + settingsCSS + "\n" + schedulesCSS + "\n" + workspacesCSS + "\n" + liveSessionCss + "\n" + liveMenuCss + "\n" + livePaletteCss + "\n</style>")
+	return template.HTML("<style>\n" + liveThemeCss + "\n" + indexCSS + "\n" + settingsCSS + "\n" + schedulesCSS + "\n" + workspacesCSS + "\n" + liveSessionCss + "\n" + liveMenuCss + "\n" + livePaletteCss + "\n" + livePetCss + "\n</style>")
 }
 
 // RenderAppShell renders the Svelte SPA host document. It deliberately reuses

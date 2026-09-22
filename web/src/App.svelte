@@ -8,6 +8,7 @@
   import WorkspaceDetailPage from './components/workspaces/WorkspaceDetailPage.svelte';
   import NotFoundPage from './routes/NotFoundPage.svelte';
   import VersionController from './components/shared/VersionController.svelte';
+  import PetWidget from './components/pet/PetWidget.svelte';
 
   let {
     path: initialPath = typeof window !== 'undefined' ? window.location.pathname : '/',
@@ -88,3 +89,4 @@
 {/if}
 
 <VersionController />
+<PetWidget />

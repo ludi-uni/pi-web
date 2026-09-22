@@ -82,6 +82,39 @@ The session route listens to `/events?id=<sessionId>` via `web/src/session/live/
 
 The index route listens to `/events?id=__all__` for `new-session`, `status-snapshot`, and `status-delta`.
 
+## Pet Widget
+
+The optional Codex-compatible pet companion is mounted once by `App.svelte`
+(`<PetWidget>`) so it shows on both the index and session routes. It is a pure
+fixed overlay — it never touches layout, the composer, or scroll state.
+
+```
+SSE / window events
+  → CompanionStateMapper (web/src/session/pet/companion-states.js, pure, 3-axis)
+  → CompanionRuntime     (web/src/session/pet/companion-runtime.js, rAF + transient timers)
+  → renderer adapter     (CodexSpriteRenderer in codex-sprite-renderer.js;
+                          future Cast2D/Live2D renderers implement the same contract)
+```
+
+The companion state is 3-axis: `activity` (idle|thinking|working|waiting) ×
+`emotion` (neutral|pleased|concerned) × `attention` (none|task|user).
+`pleased`/`concerned` are transient (auto-decay to neutral after ~4 s) and a
+generation counter guarantees a stale decay timer can never overwrite a newer
+state. `pet-states.js`/`pet-runtime.js` remain as Phase 1 compatibility shims
+that collapse the companion state onto the flat Codex PetState vocabulary
+(`idle|running|waiting|review|failed|completed`).
+
+Signals: `pi-chat-message-sent`, `pi-worker-done`, per-session
+`chat-preview`/`approval` SSE (via the shared `/events` multiplexer), and
+`status-delta`/`attention` on `__all__`.
+
+Packages are Codex-format folders (`pet.json` + `spritesheet.webp`, 8-col ×
+9/11-row atlas) discovered from `~/.pi/agent/pi-web/pets/` and
+`~/.codex/pets/` and served by `/api/pets` + `/api/pet/file`. An optional
+pi-web-only `fio.json` (schemaVersion/character/persona) extends a package
+without touching the Codex manifest. Settings live under `pi-web:v1:pet:*` in
+the server-backed settings store.
+
 ## Shared Frontend Modules
 
 - `web/src/shared/api.js` — JSON fetch helpers

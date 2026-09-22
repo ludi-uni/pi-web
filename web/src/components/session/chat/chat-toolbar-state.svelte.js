@@ -25,6 +25,10 @@ export class ChatToolbarState {
   updateContextUsage = () => {};
 
   isRunning = $derived(isRunningStatus(this.statusText, this.statusClass));
+  // "waiting to run" — the server accepted/queued the prompt but the worker
+  // hasn't started. Derived from the structured status text (never localized),
+  // not from the display label.
+  isWaiting = $derived(this.statusText === 'queued' || this.statusText === 'accepted');
 
   setStatus = (text, cls = '') => {
     this.statusText = text;

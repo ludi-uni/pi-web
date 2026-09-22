@@ -164,5 +164,12 @@ export async function loadSessionPageState({
   // Scratchpad is sidebar content, not on the first-paint path: returning ''
   // here lets the session render as soon as /api/session resolves, and
   // RightSidebar fetches the scratchpad itself when the prop is empty.
-  return buildSessionPageState({ sessionId, data, scratchpad: '', btoaImpl, TextEncoderImpl });
+  //
+  // freshPrefetch signals LiveReload that the first paint came from a
+  // just-fetched payload, so its mount-time convergence reload is redundant
+  // (the SSE 'reload' path still covers changes that land afterwards).
+  return {
+    ...buildSessionPageState({ sessionId, data, scratchpad: '', btoaImpl, TextEncoderImpl }),
+    freshPrefetch: !!prefetched,
+  };
 }

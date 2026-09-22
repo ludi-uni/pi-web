@@ -22,7 +22,7 @@
   // mirrors into document.title.
   $effect(() => setSessionTitle(title));
   $effect(() => {
-    if (sessionTitle.name) document.title = sessionTitle.name;
+    if (sessionTitle.name) document.title = `${sessionTitle.name} — Pi`;
   });
 
   // Resume ("Terminal") + New Session behavior, absorbed from the former
